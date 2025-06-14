@@ -1,0 +1,140 @@
+stallwart.build.js:1 stallwart: failed ping 1
+7850-9526b9c88f1a10a5.js:1 Replit version 73c850b8, pid2 version 0.0.1414
+_app-6a32f8279fd7ee54.js:38 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-6a32f8279fd7ee54.js:38 [LaunchDarkly] LaunchDarkly client initialized
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'battery'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-d6b7459e7da453d8.js:1
+framework-d6b7459e7da453d8.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-d6b7459e7da453d8.js:1
+MediaStreamHost:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+attached_assets/ChatGPT%20Image%20Jun%2014,%202025,%2009_19_30%20AM_1749907188251.png:1 
+            
+            
+           Failed to load resource: the server responded with a status of 404 ()
+_app-6a32f8279fd7ee54.js:38 WARN: A component changed from uncontrolled to controlled.
+(anonymous) @ _app-6a32f8279fd7ee54.js:38
+_app-6a32f8279fd7ee54.js:38 WARN: A component changed from uncontrolled to controlled.
+(anonymous) @ _app-6a32f8279fd7ee54.js:38
+_app-6a32f8279fd7ee54.js:38 WARN: A component changed from controlled to uncontrolled.
+(anonymous) @ _app-6a32f8279fd7ee54.js:38
+_app-6a32f8279fd7ee54.js:38 WARN: A component changed from uncontrolled to controlled.
+(anonymous) @ _app-6a32f8279fd7ee54.js:38
+_app-6a32f8279fd7ee54.js:38 Invalid href 'https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev//' passed to next/router in page: '/replEnvironmentDesktop'. Repeated forward-slashes (//) or backslashes \ are not valid in the href.
+(anonymous) @ _app-6a32f8279fd7ee54.js:38
+analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je56b1v9135634466za200&_p=1749909914672&gcd=13l3l3l3l2l1&npa=0&dma=0&tag_exp=101509157~103116026~103200004~103233427~103351869~103351871~104617979~104617981~104661466~104661468~104718208~104736445~104736447&ul=en-us&sr=1920x1080&cid=453367160.1749755750&ecid=1795878675&ir=1&uaa=x86&uab=64&uafvl=Google%2520Chrome%3B137.0.7151.104%7CChromium%3B137.0.7151.104%7CNot%252FA)Brand%3B24.0.0.0&uamb=0&uam=&uap=Windows&uapv=19.0.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EBAIAAQ&_s=26&dl=https%3A%2F%2Freplit.com%2F%40media38%2FMediaStreamHost&dp=%2F%40media38%2FMediaStreamHost&dt=replEnvironmentDesktop&sid=1749905535&sct=3&seg=1&_tu=wAQ&en=Agent%20Used&_ee=1&ep.event_category=All&ep.value=0&_et=28146&tfd=2242785:1 
+            
+            
+           Failed to load resource: net::ERR_CONNECTION_CLOSED
+content-all.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (content-all.js:1:49937)
+attached_assets/ChatGPT%20Image%20Jun%2014,%202025,%2011_47_05%20AM_1749916036838.png:1 
+            
+            
+           Failed to load resource: the server responded with a status of 404 ()
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html:32 Unrecognized feature: 'battery'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+Console.js:61 Warning: validateDOMNesting(...): <a> cannot appear as a descendant of <a>.
+    at a
+    at a
+    at https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=be5ff06c:337:18
+    at nav
+    at div
+    at Sidebar (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/src/components/sidebar.tsx:42:22)
+    at div
+    at AppContent (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/src/App.tsx?v=R6IfBfdekLzSQMZYhGy3W:33:22)
+    at Router (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=be5ff06c:291:17)
+    at Provider (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PLT6GTVM.js?v=be5ff06c:38:15)
+    at TooltipProvider (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=be5ff06c:58:5)
+    at QueryClientProvider (https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=be5ff06c:2805:3)
+    at App
+Mt.forEach.n.<computed> @ Console.js:61
+image:1 
+            
+            
+           Failed to load resource: the server responded with a status of 404 (Not Found)
+Console.js:61 Proxy image load failed
+Mt.forEach.n.<computed> @ Console.js:61
+Console.js:61 Proxy URL: /api/proxy/image?url=https%3A%2F%2Fimagediscoverer.xyz%2Fapi%2Fmedia%2Fserve%2Fscottish_dreamland.png
+Mt.forEach.n.<computed> @ Console.js:61
+Console.js:61 Original URL: https://imagediscoverer.xyz/api/media/serve/scottish_dreamland.png
+Mt.forEach.n.<computed> @ Console.js:61
+Console.js:61 Error event: SyntheticBaseEvent
+Mt.forEach.n.<computed> @ Console.js:61

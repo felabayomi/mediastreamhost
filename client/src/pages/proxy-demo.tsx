@@ -81,13 +81,27 @@ export default function ProxyDemo() {
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="font-mono text-sm"
                 />
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setImageUrl("https://picsum.photos/800/600")}
                   >
-                    Test URL
+                    Test Random Image
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImageUrl("https://httpbin.org/image/jpeg")}
+                  >
+                    Test JPEG
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImageUrl("https://via.placeholder.com/600x400/0000FF/FFFFFF?text=Proxy+Test")}
+                  >
+                    Test Placeholder
                   </Button>
                   <Button
                     variant="outline"
@@ -242,29 +256,52 @@ export default function ProxyDemo() {
           {/* Usage Examples */}
           <Card>
             <CardHeader>
-              <CardTitle>How to Use</CardTitle>
+              <CardTitle>How to Use with ChatGPT Images</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">For ChatGPT Images:</h4>
-                  <p className="text-sm text-blue-800">
-                    Copy any ChatGPT image URL and paste it above. The proxy will serve it through your domain instantly.
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Step 1: Get ChatGPT Image URL</h4>
+                  <p className="text-sm text-blue-800 mb-2">
+                    When ChatGPT generates an image, right-click and "Copy image address" to get the direct URL.
                   </p>
-                </div>
-                
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <h4 className="font-medium text-green-900 mb-2">For Any External Image:</h4>
-                  <p className="text-sm text-green-800">
-                    Works with any publicly accessible image URL from any website or service.
-                  </p>
-                </div>
-                
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <h4 className="font-medium text-purple-900 mb-2">URL Format:</h4>
-                  <code className="text-sm text-purple-800 bg-purple-100 px-2 py-1 rounded">
-                    https://image.citydiscoverer.ai/api/proxy/image?url=ENCODED_IMAGE_URL
+                  <code className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded block">
+                    Example: https://files.oaiusercontent.com/file-xxx/image.png
                   </code>
+                </div>
+                
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-medium text-green-900 mb-2">Step 2: Generate Proxy URL</h4>
+                  <p className="text-sm text-green-800 mb-2">
+                    Paste the ChatGPT URL above and click "Generate Proxy URL". You'll get:
+                  </p>
+                  <code className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded block">
+                    https://image.citydiscoverer.ai/api/proxy/image?url=ENCODED_URL
+                  </code>
+                </div>
+                
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-medium text-purple-900 mb-2">Step 3: Use Anywhere</h4>
+                  <p className="text-sm text-purple-800 mb-2">
+                    The proxy URL serves the ChatGPT image through your domain without downloading. Perfect for:
+                  </p>
+                  <ul className="text-xs text-purple-700 list-disc list-inside space-y-1">
+                    <li>Embedding in websites or apps</li>
+                    <li>Social media sharing</li>
+                    <li>Email newsletters</li>
+                    <li>Any place that needs a reliable image URL</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-yellow-50 rounded-lg">
+                  <h4 className="font-medium text-yellow-900 mb-2">Why Use the Proxy?</h4>
+                  <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
+                    <li><strong>No downloads:</strong> Skip the save-upload process</li>
+                    <li><strong>Your domain:</strong> Images served from image.citydiscoverer.ai</li>
+                    <li><strong>Always accessible:</strong> Bypasses ChatGPT's access restrictions</li>
+                    <li><strong>Cached:</strong> Fast loading with 24-hour cache</li>
+                    <li><strong>Reliable:</strong> Works even if original ChatGPT link expires</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
