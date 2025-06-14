@@ -464,6 +464,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Base64 upload endpoint
+  app.post('/api/upload-base64', async (req, res) => {
+    try {
+      const { base64, filename } = req.body;
+      
+      if (!base64) {
+        return res.status(400).json({ message: 'Base64 data is required' });
+      }
+
+      if (!filename) {
+        return res.status(400).json({ message: 'Filename is required' });
+      }
+
+      // Validate base64 format
+      const base64Regex = /^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/;
+      const match = base64.match(base64Regex);
+      
+      if (!match) {
+        return res.status(400).json({ 
+          message: 'Invalid base64 format. Expected: data:image/[type];base64,[data]' 
+        });
+      }
+
+      const [, imageType, base64Data] = match;
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      if (buffer.length === 0) {
+        return res.status(400).json({ message: 'Invalid or empty base64 data' });
+      }
+
+      // Ensure filename has correct extension
+      const cleanFilename = filename.toLowerCase();
+      const expectedExt = imageType === 'jpeg' ? 'jpg' : imageType;
+      const hasCorrectExt = cleanFilename.endsWith(`.${expectedExt}`) || 
+                           (expectedExt === 'jpg' && cleanFilename.endsWith('.jpeg'));
+      
+      const finalFilename = hasCorrectExt ? filename : `${filename}.${expectedExt}`;
+      const filePath = path.join('uploads', finalFilename);
+
+      // Ensure uploads directory exists
+      await fsPromises.mkdir('uploads', { recursive: true });
+
+      // Save file
+      await fsPromises.writeFile(filePath, buffer);
+
+      // Get image dimensions
+      let width, height;
+      try {
+        const sharp = require('sharp');
+        const metadata = await sharp(buffer).metadata();
+        width = metadata.width;
+        height = metadata.height;
+      } catch (error) {
+        console.error('Error getting image metadata:', error);
+      }
+
+      const embeddableUrl = generateEmbeddableUrl(finalFilename);
+      const mimeType = `image/${imageType}`;
+
+      const mediaFile = await storage.createMediaFile({
+        filename: finalFilename,
+        originalFilename: filename,
+        fileType: 'image',
+        mimeType,
+        size: buffer.length,
+        width,
+        height,
+        filePath,
+        embeddableUrl
+      });
+
+      res.json({
+        success: true,
+        message: 'Base64 image uploaded successfully',
+        embeddableUrl: mediaFile.embeddableUrl,
+        url: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}`,
+        file: mediaFile,
+        variations: {
+          thumbnail: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+          banner: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+          fullsize: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+        }
+      });
+    } catch (error) {
+      console.error('Base64 upload error:', error);
+      res.status(500).json({ 
+        message: 'Failed to process base64 upload',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Image proxy endpoint - serves external images through your domain
   app.get('/api/proxy/image', async (req, res) => {
     try {
