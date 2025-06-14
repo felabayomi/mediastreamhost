@@ -6,9 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import Upload from "@/pages/upload";
 import MediaLibrary from "@/pages/media-library";
-import UrlConverter from "@/pages/url-converter";
-import ProxyDemo from "@/pages/proxy-demo";
-import Base64Converter from "@/pages/base64-converter";
 import AccessPortal from "@/pages/access-portal";
 import NotFound from "@/pages/not-found";
 import Sidebar from "@/components/sidebar";
@@ -29,9 +26,6 @@ function AppContent() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/upload" component={Upload} />
           <Route path="/media" component={MediaLibrary} />
-          <Route path="/convert" component={UrlConverter} />
-          <Route path="/proxy" component={ProxyDemo} />
-          <Route path="/base64" component={Base64Converter} />
           <Route component={NotFound} />
         </Switch>
       </div>
