@@ -70,7 +70,7 @@ export default function Base64Converter() {
   const generateCurlCommand = () => {
     if (!base64Data.trim() || !filename.trim()) return "";
     
-    return `curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' \`
+    return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-base64' \`
   -Headers @{ "Content-Type" = "application/json" } \`
   -Body '{ "base64": "${base64Data.trim()}", "filename": "${filename.trim()}" }'`;
   };
@@ -240,7 +240,7 @@ export default function Base64Converter() {
                     <div>
                       <p className="text-xs font-medium text-purple-800">PowerShell Upload Command:</p>
                       <code className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded block">
-                        curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' ...
+                        curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-base64' ...
                       </code>
                     </div>
                     <div>
