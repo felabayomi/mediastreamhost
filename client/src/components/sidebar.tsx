@@ -8,8 +8,7 @@ import {
   ChartBarIcon,
   CloudUploadIcon,
   UserIcon,
-  SettingsIcon,
-  Shield
+  SettingsIcon
 } from "lucide-react";
 
 const navigation = [
