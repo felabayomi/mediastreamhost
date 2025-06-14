@@ -207,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Image Upload Webhook (for external image generators)
+  // Automated GPT Image Generation and Upload
   app.post('/api/gpt/generate', async (req, res) => {
     try {
       const { prompt, format, style } = req.body;
@@ -216,25 +216,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Prompt is required' });
       }
 
-      // This endpoint is designed to work with external image generators
-      // It expects the external service to generate the image and provide a URL
-      // For now, we'll return a ready-to-use upload endpoint URL
-      
-      const baseUrl = 'https://image.citydiscoverer.ai';
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ message: 'OpenAI API key not configured' });
+      }
 
+      const baseUrl = 'https://image.citydiscoverer.ai';
+      const uploader = new GPTImageUploader(process.env.OPENAI_API_KEY, baseUrl);
+      
+      // Map style to OpenAI parameters
+      let openaiStyle = 'vivid';
+      let quality = 'standard';
+      
+      if (style === 'cinematic' || style === 'realistic') {
+        openaiStyle = 'natural';
+        quality = 'hd';
+      } else if (style === 'painterly' || style === 'artistic') {
+        openaiStyle = 'vivid';
+      }
+
+      const uploadedFiles = await uploader.generateAndUpload({
+        prompt,
+        size: '1024x1024',
+        quality,
+        style: openaiStyle,
+        n: 1
+      });
+
+      const file = uploadedFiles[0];
+      
       res.json({
-        message: 'Ready to receive generated image',
-        upload_endpoint: `${baseUrl}/api/upload-from-url`,
-        instructions: 'POST the generated image URL to the upload_endpoint',
-        prompt: prompt,
-        format: format || 'image',
-        style: style || 'default'
+        url: `${file.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`,
+        filename: file.originalFilename,
+        status: 'success',
+        file_id: file.id,
+        direct_url: file.embeddableUrl,
+        variations: {
+          thumbnail: `${file.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+          banner: `${file.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+          square: `${file.embeddableUrl}?w=800&h=800&fit=crop&crop=center`
+        }
       });
     } catch (error) {
-      console.error('Webhook error:', error);
+      console.error('GPT generation error:', error);
       res.status(500).json({ 
-        message: 'Webhook error',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: 'Failed to generate and upload image',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error'
       });
     }
   });
