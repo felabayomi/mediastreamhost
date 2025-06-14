@@ -89,10 +89,10 @@ export default function PasteConverter() {
       
       // Create FormData for multipart upload
       const formData = new FormData();
-      formData.append('file', blob, filename.trim());
+      formData.append('files', blob, filename.trim());
       
       // Use the regular upload endpoint
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
       });
@@ -102,7 +102,22 @@ export default function PasteConverter() {
       }
 
       const data = await uploadResponse.json();
-      setResult(data);
+      
+      // Transform the upload response to match expected format
+      const file = data.files[0]; // Get the first uploaded file
+      const transformedResult = {
+        success: true,
+        embeddableUrl: file.embeddableUrl,
+        directUrl: file.embeddableUrl,
+        file: file,
+        variations: {
+          thumbnail: `${file.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+          banner: `${file.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+          fullsize: `${file.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+        }
+      };
+      
+      setResult(transformedResult);
       
       toast({
         title: "Conversion Successful",
