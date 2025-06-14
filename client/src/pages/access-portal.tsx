@@ -72,9 +72,15 @@ export default function AccessPortal() {
         {/* Logo Section */}
         <div className="text-center mb-8">
           <div className="relative mx-auto w-32 h-32 mb-6">
-            <div className="w-full h-full bg-gradient-to-br from-purple-500 via-blue-500 to-teal-500 rounded-2xl shadow-2xl flex items-center justify-center">
-              <Image className="h-16 w-16 text-white" />
-            </div>
+            <video 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="w-full h-full object-contain rounded-2xl shadow-2xl"
+            >
+              <source src="https://res.cloudinary.com/do26xsbby/video/upload/v1748190208/Discoverer_Logo_lkxor3.mp4" type="video/mp4" />
+            </video>
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
           </div>
           
