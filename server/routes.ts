@@ -45,8 +45,27 @@ function getFileType(mimeType: string): 'image' | 'video' {
 }
 
 function generateEmbeddableUrl(filename: string): string {
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-  const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
+  // Check for production deployment domain first
+  let baseUrl = process.env.REPLIT_DOMAINS;
+  let protocol = 'https';
+  
+  // If not in production, use dev domain
+  if (!baseUrl && process.env.REPLIT_DEV_DOMAIN) {
+    baseUrl = process.env.REPLIT_DEV_DOMAIN;
+    protocol = 'https';
+  }
+  
+  // Fallback to localhost for local development
+  if (!baseUrl) {
+    baseUrl = 'localhost:5000';
+    protocol = 'http';
+  }
+  
+  // If REPLIT_DOMAINS contains multiple domains, use the first one
+  if (baseUrl && baseUrl.includes(',')) {
+    baseUrl = baseUrl.split(',')[0].trim();
+  }
+  
   return `${protocol}://${baseUrl}/api/media/serve/${filename}`;
 }
 
