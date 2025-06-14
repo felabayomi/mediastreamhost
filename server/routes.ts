@@ -224,8 +224,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uploader = new GPTImageUploader(process.env.OPENAI_API_KEY, baseUrl);
       
       // Map style to OpenAI parameters
-      let openaiStyle = 'vivid';
-      let quality = 'standard';
+      let openaiStyle: 'vivid' | 'natural' = 'vivid';
+      let quality: 'standard' | 'hd' = 'standard';
       
       if (style === 'cinematic' || style === 'realistic') {
         openaiStyle = 'natural';

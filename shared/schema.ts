@@ -31,6 +31,17 @@ export const conversions = pgTable("conversions", {
   completedAt: timestamp("completed_at"),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  accessCode: text("access_code").notNull().unique(),
+  role: text("role").notNull(), // 'admin' | 'developer' | 'user'
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastLogin: timestamp("last_login"),
+});
+
 export const insertMediaFileSchema = createInsertSchema(mediaFiles).omit({
   id: true,
   uploadedAt: true,
@@ -42,7 +53,15 @@ export const insertConversionSchema = createInsertSchema(conversions).omit({
   completedAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  lastLogin: true,
+});
+
 export type InsertMediaFile = z.infer<typeof insertMediaFileSchema>;
 export type MediaFile = typeof mediaFiles.$inferSelect;
 export type InsertConversion = z.infer<typeof insertConversionSchema>;
 export type Conversion = typeof conversions.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;

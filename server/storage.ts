@@ -1,4 +1,4 @@
-import { mediaFiles, conversions, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion } from "@shared/schema";
+import { mediaFiles, conversions, users, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like } from "drizzle-orm";
 
@@ -24,6 +24,12 @@ export interface IStorage {
     totalConversions: number;
     totalUrls: number;
   }>;
+
+  // Users and access codes
+  verifyAccessCode(code: string): Promise<{ isValid: boolean; user: User | null }>;
+  getUserById(id: number): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUserLastLogin(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -147,6 +153,46 @@ export class DatabaseStorage implements IStorage {
       totalConversions: conversionCount.length,
       totalUrls: files.length, // Each file gets an embeddable URL
     };
+  }
+
+  // User management methods
+  async verifyAccessCode(code: string): Promise<{ isValid: boolean; user: User | null }> {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.accessCode, code), eq(users.isActive, true)));
+      
+      if (user) {
+        await this.updateUserLastLogin(user.id);
+        return { isValid: true, user };
+      }
+      
+      return { isValid: false, user: null };
+    } catch (error) {
+      console.error('Error verifying access code:', error);
+      return { isValid: false, user: null };
+    }
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async updateUserLastLogin(id: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, id));
   }
 }
 
