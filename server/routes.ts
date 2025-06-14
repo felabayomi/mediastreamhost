@@ -420,63 +420,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileExists = existingFile.some(f => f.filename === filename);
         
         if (!fileExists) {
-          // Generate the image using GPT based on the filename
-          if (!process.env.OPENAI_API_KEY) {
-            return res.status(500).json({ message: 'OpenAI API key not configured for generating missing images' });
-          }
-
-          const prompt = `Create a beautiful, high-quality image based on the theme: ${nameWithoutExt.replace(/-/g, ' ')}`;
+          // Copy the base image (best-of-spain.jpeg) to create the new filename
+          const baseImagePath = path.join('uploads', 'best-of-spain.jpeg');
+          const newFilePath = path.join('uploads', filename);
           
-          // Generate image with OpenAI
-          const response = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'dall-e-3',
-              prompt,
-              size: '1024x1024',
-              quality: 'standard',
-              style: 'vivid',
-              n: 1,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-          }
-
-          const imageData = await response.json();
-          const generatedImageUrl = imageData.data[0].url;
-
-          // Download the generated image
-          const imageResponse = await fetch(generatedImageUrl);
-          if (!imageResponse.ok) {
-            throw new Error(`Failed to download generated image: ${imageResponse.statusText}`);
-          }
-
-          const buffer = Buffer.from(await imageResponse.arrayBuffer());
-          const filePath = path.join('uploads', filename);
-
-          // Ensure uploads directory exists
-          await fsPromises.mkdir('uploads', { recursive: true });
-
-          // Save file
-          await fsPromises.writeFile(filePath, buffer);
-
-          // Get image dimensions
-          let width, height;
-          try {
-            const sharp = require('sharp');
-            const metadata = await sharp(buffer).metadata();
-            width = metadata.width;
-            height = metadata.height;
-          } catch (error) {
-            console.error('Error getting image metadata:', error);
-          }
-
+          // Copy the base image file
+          await fsPromises.copyFile(baseImagePath, newFilePath);
+          
+          // Get file stats
+          const stats = await fsPromises.stat(newFilePath);
+          
           const embeddableUrl = `https://image.citydiscoverer.ai/api/media/serve/${filename}`;
 
           const mediaFile = await storage.createMediaFile({
@@ -484,10 +437,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             originalFilename: filename,
             fileType: 'image',
             mimeType: 'image/jpeg',
-            size: buffer.length,
-            width,
-            height,
-            filePath,
+            size: stats.size,
+            width: null,
+            height: null,
+            filePath: newFilePath,
             embeddableUrl
           });
 
