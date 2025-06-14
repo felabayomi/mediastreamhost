@@ -409,63 +409,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Image URL is required' });
       }
 
-      // Check if this is our own domain and the file doesn't exist
+      // Don't allow converting our own domain URLs - they should already exist
       if (imageUrl.includes('image.citydiscoverer.ai')) {
-        const urlParts = imageUrl.split('/');
-        const filename = urlParts[urlParts.length - 1].replace(/\?.*$/, ''); // Remove query params
-        
-        // Check if file exists in database
-        const existingFile = await storage.getAllMediaFiles();
-        const fileExists = existingFile.some(f => f.filename === filename);
-        
-        if (!fileExists) {
-          // Copy the base image (best-of-spain.jpeg) to create the new filename
-          const baseImagePath = path.join('uploads', 'best-of-spain.jpeg');
-          const newFilePath = path.join('uploads', filename);
-          
-          // Copy the base image file
-          await fsPromises.copyFile(baseImagePath, newFilePath);
-          
-          const embeddableUrl = `https://image.citydiscoverer.ai/api/media/serve/${filename}`;
-
-          const mediaFile = await storage.createMediaFile({
-            filename,
-            originalFilename: filename,
-            fileType: 'image',
-            mimeType: 'image/jpeg',
-            size: 1915837, // Same size as base image
-            width: null,
-            height: null,
-            filePath: newFilePath,
-            embeddableUrl
-          });
-
-          return res.json({
-            success: true,
-            message: 'Image created successfully',
-            embeddableUrl: mediaFile.embeddableUrl,
-            directUrl: embeddableUrl,
-            created: true,
-            variations: {
-              thumbnail: `${embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
-              banner: `${embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
-              fullsize: `${embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
-            }
-          });
-        } else {
-          return res.json({
-            success: true,
-            message: 'Image already exists',
-            embeddableUrl: imageUrl,
-            directUrl: imageUrl,
-            exists: true,
-            variations: {
-              thumbnail: `${imageUrl}?w=300&h=300&fit=crop&crop=center`,
-              banner: `${imageUrl}?w=1200&h=400&fit=crop&crop=center`,
-              fullsize: `${imageUrl}?w=1200&h=800&fit=crop&crop=center`
-            }
-          });
-        }
+        return res.status(400).json({ 
+          message: 'Cannot convert URLs from your own domain. Use external image URLs from other websites instead.' 
+        });
       }
 
       // Add proper headers to mimic a browser request
