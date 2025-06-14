@@ -49,15 +49,16 @@ export default function Base64Converter() {
       return;
     }
 
-    // Generate the PowerShell command and proxy URL
+    // Generate both commands and proxy URL
+    const powerShellCommand = generatePowerShellCommand();
     const curlCommand = generateCurlCommand();
     const imageProxyUrl = `https://image-proxy-52mx.onrender.com/api/media/serve/${filename.trim()}`;
-    setResult({ curlCommand });
+    setResult({ powerShellCommand, curlCommand });
     setProxyUrl(imageProxyUrl);
     
     toast({
       title: "Commands Generated",
-      description: "PowerShell command and proxy URL ready",
+      description: "PowerShell, curl commands and proxy URL ready",
     });
   };
 
@@ -79,7 +80,7 @@ export default function Base64Converter() {
     }
   };
 
-  const generateCurlCommand = () => {
+  const generatePowerShellCommand = () => {
     if (!imageUrl.trim() || !filename.trim()) return "";
     
     return `Invoke-WebRequest -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
@@ -87,11 +88,19 @@ export default function Base64Converter() {
   -Body '{ "url": "${imageUrl.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
+  const generateCurlCommand = () => {
+    if (!imageUrl.trim() || !filename.trim()) return "";
+    
+    return `curl -X POST "https://image-proxy-52mx.onrender.com/api/upload-from-url" \\
+  -H "Content-Type: application/json" \\
+  -d '{"url": "${imageUrl.trim()}", "filename": "${filename.trim()}"}'`;
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
-        title="URL to PowerShell Generator"
-        subtitle="Generate PowerShell commands to upload images from URLs"
+        title="Command Generator"
+        subtitle="Generate PowerShell and curl commands to upload images from URLs"
       />
 
       <div className="flex-1 overflow-auto p-6">
@@ -182,28 +191,53 @@ export default function Base64Converter() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 {result && (
-                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-700">PowerShell cURL Command:</span>
-                      <Badge variant="secondary">Upload Command</Badge>
+                  <>
+                    <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-blue-700">PowerShell Command:</span>
+                        <Badge variant="secondary">Windows</Badge>
+                      </div>
+                      
+                      <Textarea
+                        value={result.powerShellCommand}
+                        readOnly
+                        rows={4}
+                        className="font-mono text-sm"
+                      />
+                      
+                      <Button
+                        variant="outline"
+                        onClick={() => copyToClipboard(result.powerShellCommand)}
+                        className="w-full"
+                      >
+                        {copiedUrl === result.powerShellCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                        Copy PowerShell Command
+                      </Button>
                     </div>
-                    
-                    <Textarea
-                      value={result.curlCommand}
-                      readOnly
-                      rows={4}
-                      className="font-mono text-sm"
-                    />
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => copyToClipboard(result.curlCommand)}
-                      className="w-full"
-                    >
-                      {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                      Copy PowerShell Command
-                    </Button>
-                  </div>
+
+                    <div className="space-y-3 p-4 bg-purple-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-purple-700">Curl Command:</span>
+                        <Badge variant="secondary">Replit Shell</Badge>
+                      </div>
+                      
+                      <Textarea
+                        value={result.curlCommand}
+                        readOnly
+                        rows={4}
+                        className="font-mono text-sm"
+                      />
+                      
+                      <Button
+                        variant="outline"
+                        onClick={() => copyToClipboard(result.curlCommand)}
+                        className="w-full"
+                      >
+                        {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                        Copy Curl Command
+                      </Button>
+                    </div>
+                  </>
                 )}
 
                 {proxyUrl && (
