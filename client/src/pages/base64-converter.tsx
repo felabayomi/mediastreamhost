@@ -17,6 +17,33 @@ export default function Base64Converter() {
   const [copiedUrl, setCopiedUrl] = useState("");
   const { toast } = useToast();
 
+  // Auto-extract filename when URL changes
+  const handleUrlChange = (url: string) => {
+    setImageUrl(url);
+    
+    if (url.trim()) {
+      try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const segments = pathname.split('/');
+        const lastSegment = segments[segments.length - 1];
+        
+        if (lastSegment) {
+          // Remove file extension if present
+          const filenameWithoutExt = lastSegment.includes('.') 
+            ? lastSegment.substring(0, lastSegment.lastIndexOf('.'))
+            : lastSegment;
+          
+          if (filenameWithoutExt) {
+            setFilename(filenameWithoutExt);
+          }
+        }
+      } catch (error) {
+        // Invalid URL, ignore auto-extraction
+      }
+    }
+  };
+
   const handleConvert = (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageUrl.trim()) {
@@ -123,21 +150,24 @@ export default function Base64Converter() {
                     type="url"
                     placeholder="https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
                     value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
+                    onChange={(e) => handleUrlChange(e.target.value)}
                     className="font-mono text-sm"
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setImageUrl("https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png")}
+                      onClick={() => handleUrlChange("https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png")}
                     >
                       Test URL
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setImageUrl("")}
+                      onClick={() => {
+                        setImageUrl("");
+                        setFilename("");
+                      }}
                     >
                       Clear
                     </Button>
@@ -175,7 +205,7 @@ export default function Base64Converter() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Enter filename without extension (e.g., "city-scape", "my-image")
+                    Auto-filled from URL or enter custom filename (no extension needed)
                   </p>
                 </div>
                 
