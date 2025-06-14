@@ -266,6 +266,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Access code verification
+  app.post("/api/access/verify", async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ message: "Access code required" });
+      }
+ 
+      const result = await storage.verifyAccessCode(code.toUpperCase());
+      if (result.isValid && result.user) {
+        // Store user in session
+        (req.session as any).userId = result.user.id;
+        (req.session as any).user = result.user;
+        
+        res.json({
+          success: true,
+          userId: result.user.id,
+          userName: result.user.name,
+          role: result.user.role
+        });
+      } else {
+        res.status(401).json({ message: "Invalid access code" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
   // Upload from URL endpoint (for external integrations)
   app.post('/api/upload-from-url', async (req, res) => {
     try {
