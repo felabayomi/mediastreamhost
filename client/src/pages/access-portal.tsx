@@ -165,7 +165,7 @@ export default function AccessPortal() {
           <p className="text-xs text-slate-500">
             © 2025 City Discoverer Media Services.
             <br />
-            Powered by MediaHost Pro - Professional Media Management
+            Powered by Felix Studios - Professional Media Management
           </p>
         </div>
       </div>
