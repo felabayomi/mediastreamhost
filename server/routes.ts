@@ -304,8 +304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Image URL is required' });
       }
 
-      // Don't allow converting our own domain URLs - they should already exist
-      if (imageUrl.includes('image.citydiscoverer.ai')) {
+      // Don't allow converting URLs from the current domain to prevent loops
+      const currentDomain = req.get('host') || 'localhost:5000';
+      if (imageUrl.includes(currentDomain)) {
         return res.status(400).json({ 
           message: 'Cannot convert URLs from your own domain. Use external image URLs from other websites instead.' 
         });
