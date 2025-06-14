@@ -75,11 +75,27 @@ export default function ProxyDemo() {
                 </label>
                 <Input
                   type="url"
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="https://picsum.photos/800/600"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="font-mono text-sm"
                 />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImageUrl("https://picsum.photos/800/600")}
+                  >
+                    Test URL
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImageUrl("")}
+                  >
+                    Clear
+                  </Button>
+                </div>
               </div>
               
               <Button 
@@ -132,19 +148,27 @@ export default function ProxyDemo() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="border rounded-lg p-4 bg-white">
-                    <img 
-                      src={proxyUrl} 
-                      alt="Proxied image"
-                      className="max-w-full h-auto rounded-lg shadow-sm"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'text-red-500 text-sm p-4 text-center';
-                        errorDiv.textContent = 'Failed to load image through proxy';
-                        target.parentNode?.appendChild(errorDiv);
-                      }}
-                    />
+                    <div className="relative">
+                      <img 
+                        src={proxyUrl} 
+                        alt="Proxied image"
+                        className="max-w-full h-auto rounded-lg shadow-sm"
+                        onLoad={() => {
+                          toast({
+                            title: "Image Loaded",
+                            description: "Image successfully loaded through proxy",
+                          });
+                        }}
+                        onError={(e) => {
+                          console.error('Proxy image load error:', e);
+                          toast({
+                            title: "Image Load Failed",
+                            description: "Check browser console for details",
+                            variant: "destructive",
+                          });
+                        }}
+                      />
+                    </div>
                   </div>
                   
                   <div className="text-sm text-gray-600">
