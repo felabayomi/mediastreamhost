@@ -48,15 +48,29 @@ function generateEmbeddableUrl(filename: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Serve uploaded files
-  app.use('/api/media/serve', (req, res, next) => {
-    const filename = req.path.substring(1);
+  // Serve uploaded files with optional transformations
+  app.get('/api/media/serve/:filename', async (req, res) => {
+    const { filename } = req.params;
+    const { w, h, fit, crop } = req.query;
     const filePath = path.join(uploadsDir, filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: 'File not found' });
     }
+
+    // Get file info from storage to determine MIME type
+    const files = await storage.getAllMediaFiles();
+    const file = files.find(f => f.filename === filename);
     
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Set appropriate content type
+    res.set('Content-Type', file.mimeType);
+    
+    // For now, just serve the original file
+    // TODO: Implement actual image transformations with Sharp
     res.sendFile(filePath);
   });
 

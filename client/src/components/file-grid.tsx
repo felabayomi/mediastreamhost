@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import ConversionModal from "./conversion-modal";
+import UrlBuilder from "./url-builder";
 import { LinkIcon, DownloadIcon, TrashIcon, PlayIcon } from "lucide-react";
 import { formatFileSize, getFileExtension, copyToClipboard } from "@/lib/file-utils";
 
@@ -27,6 +29,10 @@ interface FileGridProps {
 
 export default function FileGrid({ files }: FileGridProps) {
   const [conversionModal, setConversionModal] = useState<{ isOpen: boolean; file: MediaFile | null }>({
+    isOpen: false,
+    file: null,
+  });
+  const [urlBuilderModal, setUrlBuilderModal] = useState<{ isOpen: boolean; file: MediaFile | null }>({
     isOpen: false,
     file: null,
   });
@@ -91,6 +97,14 @@ export default function FileGrid({ files }: FileGridProps) {
     setConversionModal({ isOpen: false, file: null });
   };
 
+  const openUrlBuilderModal = (file: MediaFile) => {
+    setUrlBuilderModal({ isOpen: true, file });
+  };
+
+  const closeUrlBuilderModal = () => {
+    setUrlBuilderModal({ isOpen: false, file: null });
+  };
+
   if (files.length === 0) {
     return (
       <div className="text-center py-12">
@@ -153,7 +167,7 @@ export default function FileGrid({ files }: FileGridProps) {
               <Button
                 size="sm"
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                onClick={() => handleCopyUrl(file.embeddableUrl)}
+                onClick={() => openUrlBuilderModal(file)}
               >
                 <LinkIcon className="h-3 w-3 mr-1" />
                 Get URL
@@ -185,6 +199,17 @@ export default function FileGrid({ files }: FileGridProps) {
         onClose={closeConversionModal}
         file={conversionModal.file}
       />
+
+      <Dialog open={urlBuilderModal.isOpen} onOpenChange={closeUrlBuilderModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generate Embeddable URL</DialogTitle>
+          </DialogHeader>
+          {urlBuilderModal.file && (
+            <UrlBuilder file={urlBuilderModal.file} />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
