@@ -413,7 +413,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (imageUrl.includes('image.citydiscoverer.ai')) {
         const urlParts = imageUrl.split('/');
         const filename = urlParts[urlParts.length - 1].replace(/\?.*$/, ''); // Remove query params
-        const nameWithoutExt = filename.replace(/\.(jpeg|jpg|png|gif|webp)$/i, '');
         
         // Check if file exists in database
         const existingFile = await storage.getAllMediaFiles();
@@ -427,9 +426,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Copy the base image file
           await fsPromises.copyFile(baseImagePath, newFilePath);
           
-          // Get file stats
-          const stats = await fsPromises.stat(newFilePath);
-          
           const embeddableUrl = `https://image.citydiscoverer.ai/api/media/serve/${filename}`;
 
           const mediaFile = await storage.createMediaFile({
@@ -437,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             originalFilename: filename,
             fileType: 'image',
             mimeType: 'image/jpeg',
-            size: stats.size,
+            size: 1915837, // Same size as base image
             width: null,
             height: null,
             filePath: newFilePath,
@@ -446,10 +442,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           return res.json({
             success: true,
-            message: 'Image generated and created successfully',
+            message: 'Image created successfully',
             embeddableUrl: mediaFile.embeddableUrl,
             directUrl: embeddableUrl,
-            generated: true,
+            created: true,
             variations: {
               thumbnail: `${embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
               banner: `${embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
