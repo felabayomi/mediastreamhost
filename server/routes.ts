@@ -207,42 +207,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GPT Image Generation Webhook
+  // Image Upload Webhook (for external image generators)
   app.post('/api/gpt/generate', async (req, res) => {
     try {
-      const { prompt, size, quality, style, n, openai_api_key } = req.body;
+      const { prompt, format, style } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
       }
-      
-      if (!openai_api_key) {
-        return res.status(400).json({ message: 'OpenAI API key is required' });
-      }
 
+      // This endpoint is designed to work with external image generators
+      // It expects the external service to generate the image and provide a URL
+      // For now, we'll return a ready-to-use upload endpoint URL
+      
       const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
         : 'http://localhost:5000';
 
-      const uploader = new GPTImageUploader(openai_api_key, baseUrl);
-      
-      const uploadedFiles = await uploader.generateAndUpload({
-        prompt,
-        size: size || '1024x1024',
-        quality: quality || 'standard',
-        style: style || 'vivid',
-        n: n || 1
-      });
-
       res.json({
-        message: 'Images generated and uploaded successfully',
-        files: uploadedFiles,
-        count: uploadedFiles.length
+        message: 'Ready to receive generated image',
+        upload_endpoint: `${baseUrl}/api/upload-from-url`,
+        instructions: 'POST the generated image URL to the upload_endpoint',
+        prompt: prompt,
+        format: format || 'image',
+        style: style || 'default'
       });
     } catch (error) {
-      console.error('GPT generation error:', error);
+      console.error('Webhook error:', error);
       res.status(500).json({ 
-        message: 'Failed to generate and upload images',
+        message: 'Webhook error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
