@@ -38,9 +38,9 @@ export default function AccessPortal() {
         // Redirect based on user role
         setTimeout(() => {
           if (data.role === "admin") {
-            setLocation("/admin-console");
+            setLocation("/dashboard");
           } else if (data.role === "developer") {
-            setLocation("/api-console");
+            setLocation("/dashboard");
           } else {
             setLocation("/dashboard");
           }
