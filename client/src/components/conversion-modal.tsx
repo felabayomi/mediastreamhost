@@ -135,6 +135,9 @@ export default function ConversionModal({ isOpen, onClose, file }: ConversionMod
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>File Conversion</DialogTitle>
+          <DialogDescription>
+            Convert your media file to a different format. Select the target format and start the conversion process.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">

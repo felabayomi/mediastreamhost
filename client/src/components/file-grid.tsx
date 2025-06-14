@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import ConversionModal from "./conversion-modal";
 import UrlBuilder from "./url-builder";
@@ -204,6 +204,9 @@ export default function FileGrid({ files }: FileGridProps) {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Embeddable URL</DialogTitle>
+            <DialogDescription>
+              Create customized URLs for your media files with advanced parameters like size, format, and quality settings.
+            </DialogDescription>
           </DialogHeader>
           {urlBuilderModal.file && (
             <UrlBuilder file={urlBuilderModal.file} />
