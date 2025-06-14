@@ -539,12 +539,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: 'Base64 image uploaded successfully',
         embeddableUrl: mediaFile.embeddableUrl,
-        url: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}`,
+        url: mediaFile.embeddableUrl,
         file: mediaFile,
         variations: {
-          thumbnail: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
-          banner: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
-          fullsize: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+          thumbnail: `${mediaFile.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+          banner: `${mediaFile.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+          fullsize: `${mediaFile.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
         }
       });
     } catch (error) {
