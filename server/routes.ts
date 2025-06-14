@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
+import { GPTImageUploader } from "./gpt-integration";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -203,6 +204,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid conversion data', errors: error.errors });
       }
       res.status(500).json({ message: 'Failed to create conversion' });
+    }
+  });
+
+  // GPT Image Generation Webhook
+  app.post('/api/gpt/generate', async (req, res) => {
+    try {
+      const { prompt, size, quality, style, n, openai_api_key } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: 'Prompt is required' });
+      }
+      
+      if (!openai_api_key) {
+        return res.status(400).json({ message: 'OpenAI API key is required' });
+      }
+
+      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+
+      const uploader = new GPTImageUploader(openai_api_key, baseUrl);
+      
+      const uploadedFiles = await uploader.generateAndUpload({
+        prompt,
+        size: size || '1024x1024',
+        quality: quality || 'standard',
+        style: style || 'vivid',
+        n: n || 1
+      });
+
+      res.json({
+        message: 'Images generated and uploaded successfully',
+        files: uploadedFiles,
+        count: uploadedFiles.length
+      });
+    } catch (error) {
+      console.error('GPT generation error:', error);
+      res.status(500).json({ 
+        message: 'Failed to generate and upload images',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Upload from URL endpoint (for external integrations)
+  app.post('/api/upload-from-url', async (req, res) => {
+    try {
+      const { url, filename } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: 'URL is required' });
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to download from URL: ${response.statusText}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      
+      // Determine file extension from content type or URL
+      let ext = '';
+      if (contentType.includes('image/jpeg')) ext = '.jpg';
+      else if (contentType.includes('image/png')) ext = '.png';
+      else if (contentType.includes('image/gif')) ext = '.gif';
+      else if (contentType.includes('image/webp')) ext = '.webp';
+      else if (url.includes('.')) ext = '.' + url.split('.').pop()?.split('?')[0];
+      
+      const finalFilename = filename || `download-${Date.now()}${ext}`;
+      const fileType = getFileType(contentType);
+      const tempPath = path.join(uploadsDir, `temp-${Date.now()}${ext}`);
+      
+      // Save file temporarily
+      fs.writeFileSync(tempPath, Buffer.from(buffer));
+      
+      const embeddableUrl = generateEmbeddableUrl(path.basename(tempPath));
+      
+      const mediaFile = await storage.createMediaFile({
+        filename: path.basename(tempPath),
+        originalFilename: finalFilename,
+        fileType,
+        mimeType: contentType,
+        size: buffer.byteLength,
+        width: null,
+        height: null,
+        duration: null,
+        filePath: tempPath,
+        thumbnailPath: null,
+        embeddableUrl,
+      });
+
+      res.json({ file: mediaFile });
+    } catch (error) {
+      console.error('Upload from URL error:', error);
+      res.status(500).json({ 
+        message: 'Failed to upload from URL',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
