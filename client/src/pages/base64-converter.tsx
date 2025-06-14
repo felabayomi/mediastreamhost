@@ -4,12 +4,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Copy, Check, ExternalLink, Upload } from "lucide-react";
+import { ImageIcon, Copy, Check, ExternalLink, Upload, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/header";
 
 export default function Base64Converter() {
-  const [base64Data, setBase64Data] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [filename, setFilename] = useState("");
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -19,10 +19,10 @@ export default function Base64Converter() {
 
   const handleConvert = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!base64Data.trim()) {
+    if (!imageUrl.trim()) {
       toast({
-        title: "Base64 Data Required",
-        description: "Please paste your base64 image data",
+        title: "Image URL Required",
+        description: "Please enter a valid HTTP/HTTPS image URL",
         variant: "destructive",
       });
       return;
@@ -32,6 +32,18 @@ export default function Base64Converter() {
       toast({
         title: "Filename Required",
         description: "Please enter a filename for your image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(imageUrl);
+    } catch {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid HTTP/HTTPS URL",
         variant: "destructive",
       });
       return;
@@ -68,21 +80,18 @@ export default function Base64Converter() {
   };
 
   const generateCurlCommand = () => {
-    if (!base64Data.trim() || !filename.trim()) return "";
-    
-    // Convert base64 to a data URL for the upload-from-url endpoint
-    const dataUrl = base64Data.startsWith('data:') ? base64Data.trim() : `data:image/png;base64,${base64Data.trim()}`;
+    if (!imageUrl.trim() || !filename.trim()) return "";
     
     return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
   -Headers @{ "Content-Type" = "application/json" } \`
-  -Body '{ "url": "${dataUrl}", "filename": "${filename.trim()}" }'`;
+  -Body '{ "url": "${imageUrl.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
-        title="PowerShell Command Generator"
-        subtitle="Generate cURL commands for URL-based image uploads"
+        title="URL to PowerShell Generator"
+        subtitle="Generate PowerShell commands to upload images from URLs"
       />
 
       <div className="flex-1 overflow-auto p-6">
@@ -91,7 +100,7 @@ export default function Base64Converter() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
+                <Link className="h-5 w-5" />
                 Generate Commands & URLs
               </CardTitle>
             </CardHeader>
@@ -99,17 +108,33 @@ export default function Base64Converter() {
               <form onSubmit={handleConvert} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Base64 Image Data
+                    Image URL
                   </label>
-                  <Textarea
-                    placeholder="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA..."
-                    value={base64Data}
-                    onChange={(e) => setBase64Data(e.target.value)}
-                    rows={6}
+                  <Input
+                    type="url"
+                    placeholder="https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
                     className="font-mono text-sm"
                   />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImageUrl("https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png")}
+                    >
+                      Test URL
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImageUrl("")}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                   <p className="text-xs text-gray-500">
-                    Paste the complete base64 string including the data:image prefix
+                    Enter a valid HTTP/HTTPS URL that the server can fetch from
                   </p>
                 </div>
 
@@ -147,10 +172,10 @@ export default function Base64Converter() {
                 
                 <Button 
                   type="submit"
-                  disabled={!base64Data.trim() || !filename.trim()}
+                  disabled={!imageUrl.trim() || !filename.trim()}
                   className="w-full"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
+                  <Link className="h-4 w-4 mr-2" />
                   Generate Commands & URLs
                 </Button>
               </form>
