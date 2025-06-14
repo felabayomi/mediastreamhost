@@ -208,112 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GPT Image Generation with Custom Filename
-  app.post('/api/gpt/generate-named', async (req, res) => {
-    try {
-      const { prompt, filename, format, style } = req.body;
-      
-      if (!prompt) {
-        return res.status(400).json({ message: 'Prompt is required' });
-      }
-
-      if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ message: 'OpenAI API key not configured' });
-      }
-
-      // Generate image with OpenAI
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt,
-          size: '1024x1024',
-          quality: 'standard',
-          style: 'vivid',
-          n: 1,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-      }
-
-      const imageData = await response.json();
-      const imageUrl = imageData.data[0].url;
-
-      // Download the image
-      const imageResponse = await fetch(imageUrl);
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to download image: ${imageResponse.statusText}`);
-      }
-
-      const buffer = Buffer.from(await imageResponse.arrayBuffer());
-      
-      // Use custom filename or generate from prompt
-      const cleanFilename = filename || prompt.toLowerCase()
-        .replace(/[^a-zA-Z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .substring(0, 50);
-      
-      const finalFilename = `${cleanFilename}.jpeg`;
-      const filePath = path.join('uploads', finalFilename);
-
-      // Ensure uploads directory exists
-      await fsPromises.mkdir('uploads', { recursive: true });
-
-      // Save file with the exact filename
-      await fsPromises.writeFile(filePath, buffer);
-
-      // Get image dimensions
-      let width, height;
-      try {
-        const sharp = require('sharp');
-        const metadata = await sharp(buffer).metadata();
-        width = metadata.width;
-        height = metadata.height;
-      } catch (error) {
-        console.error('Error getting image metadata:', error);
-      }
-
-      const embeddableUrl = `https://image.citydiscoverer.ai/api/media/serve/${cleanFilename}.jpeg`;
-
-      const mediaFile = await storage.createMediaFile({
-        filename: finalFilename,
-        originalFilename: finalFilename,
-        fileType: 'image',
-        mimeType: 'image/jpeg',
-        size: buffer.length,
-        width,
-        height,
-        filePath,
-        embeddableUrl
-      });
-
-      res.json({
-        url: `${embeddableUrl}?w=1200&h=800&fit=crop&crop=center`,
-        filename: finalFilename,
-        status: 'success',
-        file_id: mediaFile.id,
-        direct_url: embeddableUrl,
-        variations: {
-          thumbnail: `${embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
-          banner: `${embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
-          square: `${embeddableUrl}?w=800&h=800&fit=crop&crop=center`
-        }
-      });
-    } catch (error) {
-      console.error('GPT generation error:', error);
-      res.status(500).json({ 
-        message: 'Failed to generate and upload image',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        status: 'error'
-      });
-    }
-  });
+  // Removed GPT generation endpoint to avoid API costs
 
   // Automated GPT Image Generation and Upload
   app.post('/api/gpt/generate', async (req, res) => {
@@ -452,12 +347,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error('URL returned HTML instead of image data. Please check the URL is a direct link to an image file.');
       }
 
-      // Generate filename
+      // Generate filename - use title if provided, otherwise convert timestamp
       const baseFilename = title || `converted-${Date.now()}`;
       const extension = contentType.includes('png') ? 'png' : 
                        contentType.includes('gif') ? 'gif' :
                        contentType.includes('webp') ? 'webp' : 'jpg';
-      const filename = `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}-${Date.now()}.${extension}`;
+      const filename = title ? `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}.${extension}` : `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}-${Date.now()}.${extension}`;
       const filePath = path.join('uploads', filename);
 
       // Ensure uploads directory exists
