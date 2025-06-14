@@ -13,6 +13,7 @@ export default function Base64Converter() {
   const [filename, setFilename] = useState("");
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [proxyUrl, setProxyUrl] = useState("");
   const [copiedUrl, setCopiedUrl] = useState("");
   const { toast } = useToast();
 
@@ -36,13 +37,15 @@ export default function Base64Converter() {
       return;
     }
 
-    // Generate the PowerShell command
+    // Generate the PowerShell command and proxy URL
     const curlCommand = generateCurlCommand();
+    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/api/media/serve/${filename.trim()}`;
     setResult({ curlCommand });
+    setProxyUrl(imageProxyUrl);
     
     toast({
-      title: "Command Generated",
-      description: "PowerShell cURL command ready to copy",
+      title: "Commands Generated",
+      description: "PowerShell command and proxy URL ready",
     });
   };
 
@@ -86,7 +89,7 @@ export default function Base64Converter() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
-                Convert Base64 to URL
+                Generate Commands & URLs
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -129,34 +132,73 @@ export default function Base64Converter() {
                   className="w-full"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Generate PowerShell Command
+                  Generate Commands & URLs
                 </Button>
               </form>
 
-              {result && (
-                <div className="mt-6 space-y-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">PowerShell cURL Command:</span>
-                    <Badge variant="secondary">Ready to Copy</Badge>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                {result && (
+                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-700">PowerShell cURL Command:</span>
+                      <Badge variant="secondary">Upload Command</Badge>
+                    </div>
+                    
+                    <Textarea
+                      value={result.curlCommand}
+                      readOnly
+                      rows={4}
+                      className="font-mono text-sm"
+                    />
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => copyToClipboard(result.curlCommand)}
+                      className="w-full"
+                    >
+                      {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                      Copy PowerShell Command
+                    </Button>
                   </div>
-                  
-                  <Textarea
-                    value={result.curlCommand}
-                    readOnly
-                    rows={4}
-                    className="font-mono text-sm"
-                  />
-                  
-                  <Button
-                    variant="outline"
-                    onClick={() => copyToClipboard(result.curlCommand)}
-                    className="w-full"
-                  >
-                    {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                    Copy PowerShell Command
-                  </Button>
-                </div>
-              )}
+                )}
+
+                {proxyUrl && (
+                  <div className="space-y-3 p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-700">Image Proxy URL:</span>
+                      <Badge variant="secondary">Direct Access</Badge>
+                    </div>
+                    
+                    <Input
+                      value={proxyUrl}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => copyToClipboard(proxyUrl)}
+                        className="flex-1"
+                      >
+                        {copiedUrl === proxyUrl ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                        Copy URL
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(proxyUrl, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="text-xs text-green-600">
+                      <p><strong>Use this URL after running the PowerShell command</strong></p>
+                      <p>This will be the hosted image location on image-proxy-52mx.onrender.com</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -190,23 +232,33 @@ export default function Base64Converter() {
                 </div>
                 
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <h4 className="font-medium text-purple-900 mb-2">Step 3: Copy PowerShell Command</h4>
+                  <h4 className="font-medium text-purple-900 mb-2">Step 3: Get Both Commands</h4>
                   <p className="text-sm text-purple-800 mb-2">
-                    Run the generated command in PowerShell to upload:
+                    You'll get two outputs:
                   </p>
-                  <code className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded block">
-                    curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' ...
-                  </code>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs font-medium text-purple-800">PowerShell Upload Command:</p>
+                      <code className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded block">
+                        curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' ...
+                      </code>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-purple-800">Image Proxy URL:</p>
+                      <code className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded block">
+                        https://image-proxy-52mx.onrender.com/api/media/serve/gpt_image.png
+                      </code>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-4 bg-yellow-50 rounded-lg">
-                  <h4 className="font-medium text-yellow-900 mb-2">Result:</h4>
-                  <p className="text-sm text-yellow-800 mb-2">
-                    After running the command, you'll get a hosted URL:
-                  </p>
-                  <code className="text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded block">
-                    https://image.citydiscoverer.ai/api/media/serve/gpt_image.png
-                  </code>
+                  <h4 className="font-medium text-yellow-900 mb-2">Workflow:</h4>
+                  <ol className="text-sm text-yellow-800 list-decimal list-inside space-y-1">
+                    <li>Run the PowerShell command to upload the base64 image</li>
+                    <li>Use the proxy URL to access the hosted image</li>
+                    <li>The proxy URL works immediately after successful upload</li>
+                  </ol>
                 </div>
               </div>
             </CardContent>
