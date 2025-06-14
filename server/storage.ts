@@ -1,4 +1,6 @@
 import { mediaFiles, conversions, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and, or, like } from "drizzle-orm";
 
 export interface IStorage {
   // Media files
@@ -24,97 +26,101 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
-  private mediaFiles: Map<number, MediaFile>;
-  private conversions: Map<number, Conversion>;
-  private currentMediaId: number;
-  private currentConversionId: number;
-
-  constructor() {
-    this.mediaFiles = new Map();
-    this.conversions = new Map();
-    this.currentMediaId = 1;
-    this.currentConversionId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getMediaFile(id: number): Promise<MediaFile | undefined> {
-    return this.mediaFiles.get(id);
+    const [file] = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id));
+    return file || undefined;
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
-    return Array.from(this.mediaFiles.values()).sort((a, b) => 
-      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-    );
+    return await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
   }
 
   async createMediaFile(insertFile: InsertMediaFile): Promise<MediaFile> {
-    const id = this.currentMediaId++;
-    const file: MediaFile = {
-      ...insertFile,
-      id,
-      uploadedAt: new Date(),
-    };
-    this.mediaFiles.set(id, file);
+    const [file] = await db
+      .insert(mediaFiles)
+      .values({
+        ...insertFile,
+        width: insertFile.width ?? null,
+        height: insertFile.height ?? null,
+        duration: insertFile.duration ?? null,
+        thumbnailPath: insertFile.thumbnailPath ?? null,
+      })
+      .returning();
     return file;
   }
 
   async deleteMediaFile(id: number): Promise<void> {
-    this.mediaFiles.delete(id);
-    // Also delete related conversions
-    for (const [convId, conversion] of this.conversions.entries()) {
-      if (conversion.mediaFileId === id) {
-        this.conversions.delete(convId);
-      }
-    }
+    // Delete related conversions first
+    await db.delete(conversions).where(eq(conversions.mediaFileId, id));
+    // Then delete the media file
+    await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
   }
 
   async searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]> {
-    const files = Array.from(this.mediaFiles.values());
-    return files.filter(file => {
-      const matchesQuery = file.originalFilename.toLowerCase().includes(query.toLowerCase()) ||
-                          file.filename.toLowerCase().includes(query.toLowerCase());
-      const matchesType = !fileType || file.fileType === fileType;
-      return matchesQuery && matchesType;
-    });
+    let whereCondition = or(
+      like(mediaFiles.originalFilename, `%${query}%`),
+      like(mediaFiles.filename, `%${query}%`)
+    );
+
+    if (fileType) {
+      whereCondition = and(
+        whereCondition,
+        eq(mediaFiles.fileType, fileType)
+      );
+    }
+
+    return await db
+      .select()
+      .from(mediaFiles)
+      .where(whereCondition)
+      .orderBy(desc(mediaFiles.uploadedAt));
   }
 
   async getConversion(id: number): Promise<Conversion | undefined> {
-    return this.conversions.get(id);
+    const [conversion] = await db.select().from(conversions).where(eq(conversions.id, id));
+    return conversion || undefined;
   }
 
   async getConversionsByMediaFile(mediaFileId: number): Promise<Conversion[]> {
-    return Array.from(this.conversions.values()).filter(conv => conv.mediaFileId === mediaFileId);
+    return await db
+      .select()
+      .from(conversions)
+      .where(eq(conversions.mediaFileId, mediaFileId))
+      .orderBy(desc(conversions.createdAt));
   }
 
   async getAllConversions(): Promise<Conversion[]> {
-    return Array.from(this.conversions.values()).sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return await db.select().from(conversions).orderBy(desc(conversions.createdAt));
   }
 
   async createConversion(insertConversion: InsertConversion): Promise<Conversion> {
-    const id = this.currentConversionId++;
-    const conversion: Conversion = {
-      ...insertConversion,
-      id,
-      createdAt: new Date(),
-      completedAt: null,
-    };
-    this.conversions.set(id, conversion);
+    const [conversion] = await db
+      .insert(conversions)
+      .values({
+        ...insertConversion,
+        progress: insertConversion.progress ?? 0,
+        outputPath: insertConversion.outputPath ?? null,
+        embeddableUrl: insertConversion.embeddableUrl ?? null,
+      })
+      .returning();
     return conversion;
   }
 
   async updateConversion(id: number, updates: Partial<Conversion>): Promise<Conversion | undefined> {
-    const conversion = this.conversions.get(id);
-    if (!conversion) return undefined;
+    const updateData: any = { ...updates };
     
-    const updated = { ...conversion, ...updates };
-    if (updates.status === 'completed' && !updated.completedAt) {
-      updated.completedAt = new Date();
+    if (updates.status === 'completed' && !updates.completedAt) {
+      updateData.completedAt = new Date();
     }
-    
-    this.conversions.set(id, updated);
-    return updated;
+
+    const [updated] = await db
+      .update(conversions)
+      .set(updateData)
+      .where(eq(conversions.id, id))
+      .returning();
+      
+    return updated || undefined;
   }
 
   async getStats(): Promise<{
@@ -123,16 +129,25 @@ export class MemStorage implements IStorage {
     totalConversions: number;
     totalUrls: number;
   }> {
-    const files = Array.from(this.mediaFiles.values());
+    const [fileStats] = await db
+      .select({
+        count: mediaFiles.id,
+        totalSize: mediaFiles.size,
+      })
+      .from(mediaFiles);
+
+    const files = await db.select().from(mediaFiles);
+    const conversionCount = await db.select().from(conversions);
+    
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
     
     return {
       totalFiles: files.length,
       totalSize,
-      totalConversions: this.conversions.size,
+      totalConversions: conversionCount.length,
       totalUrls: files.length, // Each file gets an embeddable URL
     };
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
