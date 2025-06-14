@@ -274,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Access code required" });
       }
  
-      const result = await storage.verifyAccessCode(code.toUpperCase());
+      const result = await storage.verifyAccessCode(code);
       if (result.isValid && result.user) {
         // Store user in session
         (req.session as any).userId = result.user.id;

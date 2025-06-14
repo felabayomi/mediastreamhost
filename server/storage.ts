@@ -158,10 +158,13 @@ export class DatabaseStorage implements IStorage {
   // User management methods
   async verifyAccessCode(code: string): Promise<{ isValid: boolean; user: User | null }> {
     try {
+      console.log('Verifying access code:', code);
       const [user] = await db
         .select()
         .from(users)
         .where(and(eq(users.accessCode, code), eq(users.isActive, true)));
+      
+      console.log('Found user:', user);
       
       if (user) {
         await this.updateUserLastLogin(user.id);

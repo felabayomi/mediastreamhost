@@ -22,12 +22,12 @@ export default function AccessPortal() {
       const response = await fetch("/api/access/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: accessCode.trim().toUpperCase() })
+        body: JSON.stringify({ code: accessCode.trim() })
       });
  
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem("accessCode", accessCode.trim().toUpperCase());
+        localStorage.setItem("accessCode", accessCode.trim());
         localStorage.setItem("userId", data.userId.toString());
         
         toast({
@@ -111,7 +111,7 @@ export default function AccessPortal() {
                   type="text"
                   placeholder="Enter your unique code"
                   value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setAccessCode(e.target.value)}
                   className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 text-center text-lg font-mono tracking-wider h-12"
                   maxLength={15}
                   autoComplete="off"
