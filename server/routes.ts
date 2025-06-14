@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { promises as fsPromises } from "fs";
 import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
@@ -262,10 +263,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = path.join('uploads', finalFilename);
 
       // Ensure uploads directory exists
-      await fs.mkdir('uploads', { recursive: true });
+      await fsPromises.mkdir('uploads', { recursive: true });
 
       // Save file with the exact filename
-      await fs.writeFile(filePath, buffer);
+      await fsPromises.writeFile(filePath, buffer);
 
       // Get image dimensions
       let width, height;
@@ -460,10 +461,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const filePath = path.join('uploads', filename);
 
           // Ensure uploads directory exists
-          await fs.mkdir('uploads', { recursive: true });
+          await fs.promises.mkdir('uploads', { recursive: true });
 
           // Save file
-          await fs.writeFile(filePath, buffer);
+          await fs.promises.writeFile(filePath, buffer);
 
           // Get image dimensions
           let width, height;
@@ -563,10 +564,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = path.join('uploads', filename);
 
       // Ensure uploads directory exists
-      await fs.mkdir('uploads', { recursive: true });
+      await fs.promises.mkdir('uploads', { recursive: true });
 
       // Save file
-      await fs.writeFile(filePath, buffer);
+      await fs.promises.writeFile(filePath, buffer);
 
       // Get image dimensions
       let width, height;
