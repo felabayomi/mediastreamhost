@@ -51,7 +51,7 @@ export default function Base64Converter() {
 
     // Generate the PowerShell command and proxy URL
     const curlCommand = generateCurlCommand();
-    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/image/api/media/serve/${filename.trim()}`;
+    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/api/media/serve/${filename.trim()}`;
     setResult({ curlCommand });
     setProxyUrl(imageProxyUrl);
     
@@ -82,8 +82,8 @@ export default function Base64Converter() {
   const generateCurlCommand = () => {
     if (!imageUrl.trim() || !filename.trim()) return "";
     
-    return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
-  -Headers @{ "Content-Type" = "application/json" } \`
+    return `Invoke-WebRequest -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
+  -Headers @{ 'Content-Type' = 'application/json' } \`
   -Body '{ "url": "${imageUrl.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
@@ -144,7 +144,7 @@ export default function Base64Converter() {
                   </label>
                   <Input
                     type="text"
-                    placeholder="futuristic_cityscape.png"
+                    placeholder="city-scape"
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
                     className="font-mono text-sm"
@@ -153,7 +153,7 @@ export default function Base64Converter() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setFilename("futuristic_cityscape.png")}
+                      onClick={() => setFilename("city-scape")}
                     >
                       Test Filename
                     </Button>
@@ -166,7 +166,7 @@ export default function Base64Converter() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Include the file extension (.png, .jpg, .gif, etc.)
+                    Enter filename without extension (e.g., "city-scape", "my-image")
                   </p>
                 </div>
                 
