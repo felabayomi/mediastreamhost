@@ -45,8 +45,9 @@ function getFileType(mimeType: string): 'image' | 'video' {
 }
 
 function generateEmbeddableUrl(filename: string): string {
-  const baseUrl = 'image.citydiscoverer.ai';
-  return `https://${baseUrl}/api/media/serve/${filename}`;
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
+  const protocol = process.env.REPLIT_DEV_DOMAIN ? 'https' : 'http';
+  return `${protocol}://${baseUrl}/api/media/serve/${filename}`;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
