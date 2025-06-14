@@ -301,20 +301,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Image URL is required' });
       }
 
-      const response = await fetch(imageUrl);
+      // Add proper headers to mimic a browser request
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
       if (!response.ok) {
-        throw new Error(`Failed to download image: ${response.statusText}`);
+        throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      
+      // Validate content type is actually an image
+      if (!contentType.startsWith('image/')) {
+        throw new Error(`URL does not point to an image. Content-Type: ${contentType}`);
       }
 
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
       
+      // Additional validation - check if buffer contains image data
+      if (buffer.length === 0) {
+        throw new Error('Downloaded file is empty');
+      }
+
+      // Check for HTML content (common issue)
+      const bufferStart = buffer.toString('utf8', 0, Math.min(100, buffer.length));
+      if (bufferStart.toLowerCase().includes('<!doctype') || bufferStart.toLowerCase().includes('<html')) {
+        throw new Error('URL returned HTML instead of image data. Please check the URL is a direct link to an image file.');
+      }
+
       // Generate filename
       const baseFilename = title || `converted-${Date.now()}`;
-      const extension = contentType.includes('png') ? 'png' : 'jpg';
+      const extension = contentType.includes('png') ? 'png' : 
+                       contentType.includes('gif') ? 'gif' :
+                       contentType.includes('webp') ? 'webp' : 'jpg';
       const filename = `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}-${Date.now()}.${extension}`;
       const filePath = path.join('uploads', filename);
+
+      // Ensure uploads directory exists
+      await fs.mkdir('uploads', { recursive: true });
 
       // Save file
       await fs.writeFile(filePath, buffer);
@@ -328,6 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         height = metadata.height;
       } catch (error) {
         console.error('Error getting image metadata:', error);
+        // If sharp fails, we'll continue without dimensions
       }
 
       const embeddableUrl = generateEmbeddableUrl(filename);
@@ -357,7 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Image conversion error:', error);
-      res.status(500).json({ message: 'Failed to convert image' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to convert image';
+      res.status(500).json({ message: errorMessage });
     }
   });
 
