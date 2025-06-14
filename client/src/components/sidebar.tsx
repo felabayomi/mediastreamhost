@@ -18,7 +18,7 @@ const navigation = [
   { name: "Upload Files", href: "/upload", icon: UploadIcon },
   { name: "URL Converter", href: "/convert", icon: LinkIcon },
   { name: "Image Proxy", href: "/proxy", icon: Zap },
-  { name: "Base64 Converter", href: "/base64", icon: FileImage },
+  { name: "PowerShell Generator", href: "/base64", icon: FileImage },
   { name: "Media Library", href: "/media", icon: ImagesIcon },
   { name: "Conversions", href: "/conversions", icon: ServerCog },
   { name: "Analytics", href: "/analytics", icon: ChartBarIcon },

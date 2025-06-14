@@ -16,7 +16,7 @@ export default function Base64Converter() {
   const [copiedUrl, setCopiedUrl] = useState("");
   const { toast } = useToast();
 
-  const handleConvert = async (e: React.FormEvent) => {
+  const handleConvert = (e: React.FormEvent) => {
     e.preventDefault();
     if (!base64Data.trim()) {
       toast({
@@ -36,37 +36,14 @@ export default function Base64Converter() {
       return;
     }
 
-    setIsConverting(true);
-    try {
-      const response = await fetch("/api/upload-base64", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          base64: base64Data.trim(),
-          filename: filename.trim()
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResult(data);
-        toast({
-          title: "Conversion Successful",
-          description: `Image uploaded as ${filename}`,
-        });
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Conversion failed");
-      }
-    } catch (error) {
-      toast({
-        title: "Conversion Failed",
-        description: error instanceof Error ? error.message : "Unable to convert base64 data",
-        variant: "destructive",
-      });
-    } finally {
-      setIsConverting(false);
-    }
+    // Generate the PowerShell command
+    const curlCommand = generateCurlCommand();
+    setResult({ curlCommand });
+    
+    toast({
+      title: "Command Generated",
+      description: "PowerShell cURL command ready to copy",
+    });
   };
 
   const copyToClipboard = async (url: string) => {
@@ -90,16 +67,16 @@ export default function Base64Converter() {
   const generateCurlCommand = () => {
     if (!base64Data.trim() || !filename.trim()) return "";
     
-    return `curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' \\
-  -Headers @{ "Content-Type" = "application/json" } \\
+    return `curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' \`
+  -Headers @{ "Content-Type" = "application/json" } \`
   -Body '{ "base64": "${base64Data.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
-        title="Base64 Converter"
-        subtitle="Convert base64 image data to hosted URLs"
+        title="PowerShell Command Generator"
+        subtitle="Generate cURL commands for base64 image uploads"
       />
 
       <div className="flex-1 overflow-auto p-6">
@@ -148,123 +125,42 @@ export default function Base64Converter() {
                 
                 <Button 
                   type="submit"
-                  disabled={!base64Data.trim() || !filename.trim() || isConverting}
+                  disabled={!base64Data.trim() || !filename.trim()}
                   className="w-full"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {isConverting ? "Converting..." : "Convert to URL"}
+                  Generate PowerShell Command
                 </Button>
               </form>
 
               {result && (
                 <div className="mt-6 space-y-3 p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Your Hosted URL:</span>
-                    <Badge variant="secondary">Ready to Use</Badge>
+                    <span className="text-sm font-medium text-gray-700">PowerShell cURL Command:</span>
+                    <Badge variant="secondary">Ready to Copy</Badge>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={result.embeddableUrl || result.url}
-                      readOnly
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(result.embeddableUrl || result.url)}
-                    >
-                      {copiedUrl === (result.embeddableUrl || result.url) ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(result.embeddableUrl || result.url, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {result.variations && (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700">Available Sizes:</span>
-                      <div className="grid grid-cols-1 gap-2">
-                        {Object.entries(result.variations).map(([size, url]) => (
-                          <div key={size} className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600 w-20 capitalize">{size}:</span>
-                            <Input
-                              value={url as string}
-                              readOnly
-                              className="font-mono text-xs"
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => copyToClipboard(url as string)}
-                            >
-                              {copiedUrl === url ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <Textarea
+                    value={result.curlCommand}
+                    readOnly
+                    rows={4}
+                    className="font-mono text-sm"
+                  />
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => copyToClipboard(result.curlCommand)}
+                    className="w-full"
+                  >
+                    {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                    Copy PowerShell Command
+                  </Button>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Preview */}
-          {result && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg p-4 bg-white">
-                  <img 
-                    src={result.embeddableUrl || result.url} 
-                    alt="Converted image"
-                    className="max-w-full h-auto rounded-lg shadow-sm"
-                    onError={(e) => {
-                      console.error('Image preview failed:', e);
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* cURL Command Generator */}
-          <Card>
-            <CardHeader>
-              <CardTitle>API Integration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  PowerShell cURL Command:
-                </label>
-                <Textarea
-                  value={generateCurlCommand()}
-                  readOnly
-                  rows={4}
-                  className="font-mono text-xs"
-                  placeholder="Fill in the base64 data and filename above to generate the cURL command"
-                />
-                {base64Data.trim() && filename.trim() && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(generateCurlCommand())}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy cURL Command
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Usage Examples */}
           <Card>
@@ -274,9 +170,9 @@ export default function Base64Converter() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Step 1: Get Base64 Data</h4>
+                  <h4 className="font-medium text-blue-900 mb-2">Step 1: Paste Base64 Data</h4>
                   <p className="text-sm text-blue-800 mb-2">
-                    Copy the complete base64 string from your source (including data:image prefix)
+                    Copy the complete base64 string (including data:image prefix)
                   </p>
                   <code className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded block">
                     data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
@@ -284,33 +180,33 @@ export default function Base64Converter() {
                 </div>
                 
                 <div className="p-4 bg-green-50 rounded-lg">
-                  <h4 className="font-medium text-green-900 mb-2">Step 2: Choose Filename</h4>
+                  <h4 className="font-medium text-green-900 mb-2">Step 2: Enter Filename</h4>
                   <p className="text-sm text-green-800 mb-2">
-                    Enter your desired filename with extension
+                    Choose your desired filename with extension
                   </p>
                   <code className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded block">
-                    venetian_nights.png
+                    gpt_image.png
                   </code>
                 </div>
                 
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <h4 className="font-medium text-purple-900 mb-2">Step 3: Get Hosted URL</h4>
+                  <h4 className="font-medium text-purple-900 mb-2">Step 3: Copy PowerShell Command</h4>
                   <p className="text-sm text-purple-800 mb-2">
-                    Click convert to get your permanent hosted URL:
+                    Run the generated command in PowerShell to upload:
                   </p>
                   <code className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded block">
-                    https://image.citydiscoverer.ai/api/media/serve/venetian_nights.png
+                    curl -Method POST 'https://image.citydiscoverer.ai/api/upload-base64' ...
                   </code>
                 </div>
 
                 <div className="p-4 bg-yellow-50 rounded-lg">
-                  <h4 className="font-medium text-yellow-900 mb-2">Features:</h4>
-                  <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
-                    <li><strong>Permanent storage:</strong> Files saved to your media library</li>
-                    <li><strong>Dynamic resizing:</strong> Add ?w=300&h=200 for different sizes</li>
-                    <li><strong>API ready:</strong> Use the generated cURL commands</li>
-                    <li><strong>Your domain:</strong> All URLs use image.citydiscoverer.ai</li>
-                  </ul>
+                  <h4 className="font-medium text-yellow-900 mb-2">Result:</h4>
+                  <p className="text-sm text-yellow-800 mb-2">
+                    After running the command, you'll get a hosted URL:
+                  </p>
+                  <code className="text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded block">
+                    https://image.citydiscoverer.ai/api/media/serve/gpt_image.png
+                  </code>
                 </div>
               </div>
             </CardContent>
