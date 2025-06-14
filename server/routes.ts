@@ -408,6 +408,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Image URL is required' });
       }
 
+      // Check if this is our own domain and the file doesn't exist
+      if (imageUrl.includes('image.citydiscoverer.ai')) {
+        const urlParts = imageUrl.split('/');
+        const filename = urlParts[urlParts.length - 1].replace(/\?.*$/, ''); // Remove query params
+        const nameWithoutExt = filename.replace(/\.(jpeg|jpg|png|gif|webp)$/i, '');
+        
+        // Check if file exists in database
+        const existingFile = await storage.getAllMediaFiles();
+        const fileExists = existingFile.some(f => f.filename === filename);
+        
+        if (!fileExists) {
+          // Generate the image using GPT based on the filename
+          if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ message: 'OpenAI API key not configured for generating missing images' });
+          }
+
+          const prompt = `Create a beautiful, high-quality image based on the theme: ${nameWithoutExt.replace(/-/g, ' ')}`;
+          
+          // Generate image with OpenAI
+          const response = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'dall-e-3',
+              prompt,
+              size: '1024x1024',
+              quality: 'standard',
+              style: 'vivid',
+              n: 1,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+          }
+
+          const imageData = await response.json();
+          const generatedImageUrl = imageData.data[0].url;
+
+          // Download the generated image
+          const imageResponse = await fetch(generatedImageUrl);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to download generated image: ${imageResponse.statusText}`);
+          }
+
+          const buffer = Buffer.from(await imageResponse.arrayBuffer());
+          const filePath = path.join('uploads', filename);
+
+          // Ensure uploads directory exists
+          await fs.mkdir('uploads', { recursive: true });
+
+          // Save file
+          await fs.writeFile(filePath, buffer);
+
+          // Get image dimensions
+          let width, height;
+          try {
+            const sharp = require('sharp');
+            const metadata = await sharp(buffer).metadata();
+            width = metadata.width;
+            height = metadata.height;
+          } catch (error) {
+            console.error('Error getting image metadata:', error);
+          }
+
+          const embeddableUrl = `https://image.citydiscoverer.ai/api/media/serve/${filename}`;
+
+          const mediaFile = await storage.createMediaFile({
+            filename,
+            originalFilename: filename,
+            fileType: 'image',
+            mimeType: 'image/jpeg',
+            size: buffer.length,
+            width,
+            height,
+            filePath,
+            embeddableUrl
+          });
+
+          return res.json({
+            success: true,
+            message: 'Image generated and created successfully',
+            embeddableUrl: mediaFile.embeddableUrl,
+            directUrl: embeddableUrl,
+            generated: true,
+            variations: {
+              thumbnail: `${embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+              banner: `${embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+              fullsize: `${embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+            }
+          });
+        } else {
+          return res.json({
+            success: true,
+            message: 'Image already exists',
+            embeddableUrl: imageUrl,
+            directUrl: imageUrl,
+            exists: true,
+            variations: {
+              thumbnail: `${imageUrl}?w=300&h=300&fit=crop&crop=center`,
+              banner: `${imageUrl}?w=1200&h=400&fit=crop&crop=center`,
+              fullsize: `${imageUrl}?w=1200&h=800&fit=crop&crop=center`
+            }
+          });
+        }
+      }
+
       // Add proper headers to mimic a browser request
       const response = await fetch(imageUrl, {
         headers: {
