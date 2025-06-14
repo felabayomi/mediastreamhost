@@ -39,7 +39,7 @@ export default function Base64Converter() {
 
     // Generate the PowerShell command and proxy URL
     const curlCommand = generateCurlCommand();
-    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/api/media/serve/${filename.trim()}`;
+    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/image/api/media/serve/${filename.trim()}`;
     setResult({ curlCommand });
     setProxyUrl(imageProxyUrl);
     
@@ -116,11 +116,27 @@ export default function Base64Converter() {
                   </label>
                   <Input
                     type="text"
-                    placeholder="venetian_nights.png"
+                    placeholder="futuristic_cityscape.png"
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
                     className="font-mono text-sm"
                   />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilename("futuristic_cityscape.png")}
+                    >
+                      Test Filename
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilename("")}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                   <p className="text-xs text-gray-500">
                     Include the file extension (.png, .jpg, .gif, etc.)
                   </p>
