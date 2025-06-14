@@ -44,7 +44,7 @@ function getFileType(mimeType: string): 'image' | 'video' {
 }
 
 function generateEmbeddableUrl(filename: string): string {
-  const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+  const baseUrl = 'image.citydiscoverer.ai';
   return `https://${baseUrl}/api/media/serve/${filename}`;
 }
 
@@ -220,9 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // It expects the external service to generate the image and provide a URL
       // For now, we'll return a ready-to-use upload endpoint URL
       
-      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0] 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      const baseUrl = 'https://image.citydiscoverer.ai';
 
       res.json({
         message: 'Ready to receive generated image',
