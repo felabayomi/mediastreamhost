@@ -70,16 +70,19 @@ export default function Base64Converter() {
   const generateCurlCommand = () => {
     if (!base64Data.trim() || !filename.trim()) return "";
     
-    return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-base64' \`
+    // Convert base64 to a data URL for the upload-from-url endpoint
+    const dataUrl = base64Data.startsWith('data:') ? base64Data.trim() : `data:image/png;base64,${base64Data.trim()}`;
+    
+    return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
   -Headers @{ "Content-Type" = "application/json" } \`
-  -Body '{ "base64": "${base64Data.trim()}", "filename": "${filename.trim()}" }'`;
+  -Body '{ "url": "${dataUrl}", "filename": "${filename.trim()}" }'`;
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
         title="PowerShell Command Generator"
-        subtitle="Generate cURL commands for base64 image uploads"
+        subtitle="Generate cURL commands for URL-based image uploads"
       />
 
       <div className="flex-1 overflow-auto p-6">
