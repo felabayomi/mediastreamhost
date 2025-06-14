@@ -83,13 +83,25 @@ export default function PasteConverter() {
     setIsConverting(true);
     
     try {
-      const response = await apiRequest("POST", "/api/upload-base64", {
-        base64: pastedImage,
-        filename: filename.trim()
+      // Convert base64 to blob for proper file upload
+      const response = await fetch(pastedImage);
+      const blob = await response.blob();
+      
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      formData.append('file', blob, filename.trim());
+      
+      // Use the regular upload endpoint
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
       });
 
-      const data = await response.json();
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
 
+      const data = await uploadResponse.json();
       setResult(data);
       
       toast({

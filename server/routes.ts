@@ -336,10 +336,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            (expectedExt === 'jpg' && cleanFilename.endsWith('.jpeg'));
       
       const finalFilename = hasCorrectExt ? filename : `${filename}.${expectedExt}`;
-      const filePath = path.join('uploads', finalFilename);
+      const filePath = path.join(uploadsDir, finalFilename);
 
       // Ensure uploads directory exists
-      await fsPromises.mkdir('uploads', { recursive: true });
+      await fsPromises.mkdir(uploadsDir, { recursive: true });
 
       // Save file
       await fsPromises.writeFile(filePath, buffer);
