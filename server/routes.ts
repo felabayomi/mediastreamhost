@@ -54,26 +54,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/media/serve/:filename', async (req, res) => {
     const { filename } = req.params;
     const { w, h, fit, crop } = req.query;
-    const filePath = path.join(uploadsDir, filename);
     
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'File not found' });
-    }
+    try {
+      // Get file info from storage first
+      const files = await storage.getAllMediaFiles();
+      const file = files.find(f => f.filename === filename);
+      
+      if (!file) {
+        return res.status(404).json({ message: 'File not found in database' });
+      }
 
-    // Get file info from storage to determine MIME type
-    const files = await storage.getAllMediaFiles();
-    const file = files.find(f => f.filename === filename);
-    
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
+      // Check if physical file exists using the stored file path
+      if (!fs.existsSync(file.filePath)) {
+        console.error(`Physical file not found: ${file.filePath}`);
+        return res.status(404).json({ message: 'Physical file not found' });
+      }
 
-    // Set appropriate content type
-    res.set('Content-Type', file.mimeType);
-    
-    // For now, just serve the original file
-    // TODO: Implement actual image transformations with Sharp
-    res.sendFile(filePath);
+      // Set appropriate content type
+      res.set('Content-Type', file.mimeType);
+      res.set('Cache-Control', 'public, max-age=86400');
+      
+      // Use absolute path for sendFile
+      res.sendFile(path.resolve(file.filePath));
+    } catch (error) {
+      console.error('File serving error:', error);
+      res.status(500).json({ message: 'Failed to serve file' });
+    }
   });
 
   // Get dashboard stats
