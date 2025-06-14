@@ -9,14 +9,14 @@ import { SearchIcon } from "lucide-react";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
-  const [fileType, setFileType] = useState<string>("");
+  const [fileType, setFileType] = useState<string>("all");
 
   const { data: files, isLoading } = useQuery({
     queryKey: ["/api/media", { search, type: fileType }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
-      if (fileType) params.append('type', fileType);
+      if (fileType && fileType !== 'all') params.append('type', fileType);
       
       const response = await fetch(`/api/media?${params}`);
       if (!response.ok) throw new Error('Failed to fetch files');
@@ -53,7 +53,7 @@ export default function MediaLibrary() {
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="image">Images</SelectItem>
                     <SelectItem value="video">Videos</SelectItem>
                   </SelectContent>
