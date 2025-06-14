@@ -461,10 +461,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const filePath = path.join('uploads', filename);
 
           // Ensure uploads directory exists
-          await fs.promises.mkdir('uploads', { recursive: true });
+          await fsPromises.mkdir('uploads', { recursive: true });
 
           // Save file
-          await fs.promises.writeFile(filePath, buffer);
+          await fsPromises.writeFile(filePath, buffer);
 
           // Get image dimensions
           let width, height;
@@ -564,10 +564,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = path.join('uploads', filename);
 
       // Ensure uploads directory exists
-      await fs.promises.mkdir('uploads', { recursive: true });
+      await fsPromises.mkdir('uploads', { recursive: true });
 
       // Save file
-      await fs.promises.writeFile(filePath, buffer);
+      await fsPromises.writeFile(filePath, buffer);
 
       // Get image dimensions
       let width, height;
