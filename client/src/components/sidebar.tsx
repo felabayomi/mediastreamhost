@@ -14,9 +14,9 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Gauge },
   { name: "Upload Files", href: "/upload", icon: UploadIcon },
+  { name: "URL Converter", href: "/convert", icon: LinkIcon },
   { name: "Media Library", href: "/media", icon: ImagesIcon },
   { name: "Conversions", href: "/conversions", icon: ServerCog },
-  { name: "Generated URLs", href: "/urls", icon: LinkIcon },
   { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
 ];
 

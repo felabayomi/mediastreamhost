@@ -27,6 +27,7 @@ function AppContent() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/upload" component={Upload} />
           <Route path="/media" component={MediaLibrary} />
+          <Route path="/convert" component={UrlConverter} />
           <Route component={NotFound} />
         </Switch>
       </div>

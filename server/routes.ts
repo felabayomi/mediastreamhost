@@ -292,6 +292,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // URL to media converter
+  app.post('/api/convert-url', async (req, res) => {
+    try {
+      const { imageUrl, title } = req.body;
+      
+      if (!imageUrl) {
+        return res.status(400).json({ message: 'Image URL is required' });
+      }
+
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download image: ${response.statusText}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      
+      // Generate filename
+      const baseFilename = title || `converted-${Date.now()}`;
+      const extension = contentType.includes('png') ? 'png' : 'jpg';
+      const filename = `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}-${Date.now()}.${extension}`;
+      const filePath = path.join('uploads', filename);
+
+      // Save file
+      await fs.writeFile(filePath, buffer);
+
+      // Get image dimensions
+      let width, height;
+      try {
+        const sharp = require('sharp');
+        const metadata = await sharp(buffer).metadata();
+        width = metadata.width;
+        height = metadata.height;
+      } catch (error) {
+        console.error('Error getting image metadata:', error);
+      }
+
+      const embeddableUrl = generateEmbeddableUrl(filename);
+
+      const mediaFile = await storage.createMediaFile({
+        filename,
+        originalFilename: `${baseFilename}.${extension}`,
+        fileType: 'image',
+        mimeType: contentType,
+        size: buffer.length,
+        width,
+        height,
+        filePath,
+        embeddableUrl
+      });
+
+      res.json({
+        success: true,
+        message: 'Image converted successfully',
+        embeddableUrl: mediaFile.embeddableUrl,
+        directUrl: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}`,
+        variations: {
+          thumbnail: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
+          banner: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
+          fullsize: `https://image.citydiscoverer.ai${mediaFile.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+        }
+      });
+    } catch (error) {
+      console.error('Image conversion error:', error);
+      res.status(500).json({ message: 'Failed to convert image' });
+    }
+  });
+
   // Upload from URL endpoint (for external integrations)
   app.post('/api/upload-from-url', async (req, res) => {
     try {
