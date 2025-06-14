@@ -275,19 +275,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
  
       const result = await storage.verifyAccessCode(code);
-      console.log('Verification result:', result);
       
       if (result.isValid && result.user) {
-        const response = {
+        res.json({
           success: true,
           userId: result.user.id,
           userName: result.user.name,
           role: result.user.role
-        };
-        console.log('Sending response:', response);
-        res.json(response);
+        });
       } else {
-        console.log('Authentication failed - invalid code or user not found');
         res.status(401).json({ message: "Invalid access code" });
       }
     } catch (error) {
