@@ -8,13 +8,15 @@ import {
   ChartBarIcon,
   CloudUploadIcon,
   UserIcon,
-  SettingsIcon
+  SettingsIcon,
+  Zap
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Gauge },
   { name: "Upload Files", href: "/upload", icon: UploadIcon },
   { name: "URL Converter", href: "/convert", icon: LinkIcon },
+  { name: "Image Proxy", href: "/proxy", icon: Zap },
   { name: "Media Library", href: "/media", icon: ImagesIcon },
   { name: "Conversions", href: "/conversions", icon: ServerCog },
   { name: "Analytics", href: "/analytics", icon: ChartBarIcon },

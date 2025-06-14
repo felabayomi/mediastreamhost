@@ -464,6 +464,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Image proxy endpoint - serves external images through your domain
+  app.get('/api/proxy/image', async (req, res) => {
+    try {
+      const { url } = req.query;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: 'URL parameter is required' });
+      }
+
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch {
+        return res.status(400).json({ message: 'Invalid URL format' });
+      }
+
+      // Don't proxy our own domain to prevent loops
+      const currentDomain = req.get('host') || 'localhost:5000';
+      if (url.includes(currentDomain)) {
+        return res.status(400).json({ message: 'Cannot proxy URLs from the same domain' });
+      }
+
+      // Fetch the image with proper headers
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': new URL(url).origin,
+        }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ 
+          message: `Failed to fetch image: ${response.status} ${response.statusText}` 
+        });
+      }
+
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      
+      // Validate it's actually an image
+      if (!contentType.startsWith('image/')) {
+        return res.status(400).json({ 
+          message: `URL does not serve an image. Content-Type: ${contentType}` 
+        });
+      }
+
+      // Set appropriate headers for image response
+      res.set({
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+      });
+
+      // Stream the image data directly to the client
+      const imageBuffer = await response.arrayBuffer();
+      res.send(Buffer.from(imageBuffer));
+
+    } catch (error) {
+      console.error('Image proxy error:', error);
+      res.status(500).json({ 
+        message: 'Failed to proxy image',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
