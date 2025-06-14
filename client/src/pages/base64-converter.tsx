@@ -110,15 +110,9 @@ export default function Base64Converter() {
   const generatePowerShellCommand = () => {
     if (!imageUrl.trim() || !filename.trim()) return "";
     
-    const bodyContent = JSON.stringify({
-      url: imageUrl.trim(),
-      filename: filename.trim()
-    });
-    
-    return `Invoke-WebRequest -Uri 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
-  -Method POST \`
-  -Headers @{ 'Content-Type' = 'application/json' } \`
-  -Body '${bodyContent}'`;
+    return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
+  -Headers @{ "Content-Type" = "application/json" } \`
+  -Body '{ "url": "${imageUrl.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
   const generateCurlCommand = () => {
