@@ -17,33 +17,6 @@ export default function Base64Converter() {
   const [copiedUrl, setCopiedUrl] = useState("");
   const { toast } = useToast();
 
-  // Auto-extract filename when URL changes
-  const handleUrlChange = (url: string) => {
-    setImageUrl(url);
-    
-    if (url.trim()) {
-      try {
-        const urlObj = new URL(url);
-        const pathname = urlObj.pathname;
-        const segments = pathname.split('/');
-        const lastSegment = segments[segments.length - 1];
-        
-        if (lastSegment) {
-          // Remove file extension if present
-          const filenameWithoutExt = lastSegment.includes('.') 
-            ? lastSegment.substring(0, lastSegment.lastIndexOf('.'))
-            : lastSegment;
-          
-          if (filenameWithoutExt) {
-            setFilename(filenameWithoutExt);
-          }
-        }
-      } catch (error) {
-        // Invalid URL, ignore auto-extraction
-      }
-    }
-  };
-
   const handleConvert = (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageUrl.trim()) {
@@ -76,16 +49,15 @@ export default function Base64Converter() {
       return;
     }
 
-    // Generate both commands and proxy URL
-    const powerShellCommand = generatePowerShellCommand();
+    // Generate the PowerShell command and proxy URL
     const curlCommand = generateCurlCommand();
-    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/api/media/serve/${filename.trim()}`;
-    setResult({ powerShellCommand, curlCommand });
+    const imageProxyUrl = `https://image-proxy-52mx.onrender.com/image/api/media/serve/${filename.trim()}`;
+    setResult({ curlCommand });
     setProxyUrl(imageProxyUrl);
     
     toast({
       title: "Commands Generated",
-      description: "PowerShell, curl commands and proxy URL ready",
+      description: "PowerShell command and proxy URL ready",
     });
   };
 
@@ -107,7 +79,7 @@ export default function Base64Converter() {
     }
   };
 
-  const generatePowerShellCommand = () => {
+  const generateCurlCommand = () => {
     if (!imageUrl.trim() || !filename.trim()) return "";
     
     return `curl -Method POST 'https://image-proxy-52mx.onrender.com/api/upload-from-url' \`
@@ -115,19 +87,11 @@ export default function Base64Converter() {
   -Body '{ "url": "${imageUrl.trim()}", "filename": "${filename.trim()}" }'`;
   };
 
-  const generateCurlCommand = () => {
-    if (!imageUrl.trim() || !filename.trim()) return "";
-    
-    return `curl -X POST "https://image-proxy-52mx.onrender.com/api/upload-from-url" \\
-  -H "Content-Type: application/json" \\
-  -d '{"url": "${imageUrl.trim()}", "filename": "${filename.trim()}"}'`;
-  };
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
-        title="Command Generator"
-        subtitle="Generate PowerShell and curl commands to upload images from URLs"
+        title="URL to PowerShell Generator"
+        subtitle="Generate PowerShell commands to upload images from URLs"
       />
 
       <div className="flex-1 overflow-auto p-6">
@@ -150,24 +114,21 @@ export default function Base64Converter() {
                     type="url"
                     placeholder="https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
                     value={imageUrl}
-                    onChange={(e) => handleUrlChange(e.target.value)}
+                    onChange={(e) => setImageUrl(e.target.value)}
                     className="font-mono text-sm"
                   />
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleUrlChange("https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png")}
+                      onClick={() => setImageUrl("https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png")}
                     >
                       Test URL
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setImageUrl("");
-                        setFilename("");
-                      }}
+                      onClick={() => setImageUrl("")}
                     >
                       Clear
                     </Button>
@@ -183,7 +144,7 @@ export default function Base64Converter() {
                   </label>
                   <Input
                     type="text"
-                    placeholder="city-scape"
+                    placeholder="futuristic_cityscape.png"
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
                     className="font-mono text-sm"
@@ -192,7 +153,7 @@ export default function Base64Converter() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setFilename("city-scape")}
+                      onClick={() => setFilename("futuristic_cityscape.png")}
                     >
                       Test Filename
                     </Button>
@@ -205,7 +166,7 @@ export default function Base64Converter() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Auto-filled from URL or enter custom filename (no extension needed)
+                    Include the file extension (.png, .jpg, .gif, etc.)
                   </p>
                 </div>
                 
@@ -221,53 +182,28 @@ export default function Base64Converter() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 {result && (
-                  <>
-                    <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-blue-700">PowerShell Command:</span>
-                        <Badge variant="secondary">Windows</Badge>
-                      </div>
-                      
-                      <Textarea
-                        value={result.powerShellCommand}
-                        readOnly
-                        rows={4}
-                        className="font-mono text-sm"
-                      />
-                      
-                      <Button
-                        variant="outline"
-                        onClick={() => copyToClipboard(result.powerShellCommand)}
-                        className="w-full"
-                      >
-                        {copiedUrl === result.powerShellCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                        Copy PowerShell Command
-                      </Button>
+                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-700">PowerShell cURL Command:</span>
+                      <Badge variant="secondary">Upload Command</Badge>
                     </div>
-
-                    <div className="space-y-3 p-4 bg-purple-50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-purple-700">Curl Command:</span>
-                        <Badge variant="secondary">Replit Shell</Badge>
-                      </div>
-                      
-                      <Textarea
-                        value={result.curlCommand}
-                        readOnly
-                        rows={4}
-                        className="font-mono text-sm"
-                      />
-                      
-                      <Button
-                        variant="outline"
-                        onClick={() => copyToClipboard(result.curlCommand)}
-                        className="w-full"
-                      >
-                        {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                        Copy Curl Command
-                      </Button>
-                    </div>
-                  </>
+                    
+                    <Textarea
+                      value={result.curlCommand}
+                      readOnly
+                      rows={4}
+                      className="font-mono text-sm"
+                    />
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => copyToClipboard(result.curlCommand)}
+                      className="w-full"
+                    >
+                      {copiedUrl === result.curlCommand ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                      Copy PowerShell Command
+                    </Button>
+                  </div>
                 )}
 
                 {proxyUrl && (

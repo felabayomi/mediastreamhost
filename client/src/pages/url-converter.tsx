@@ -95,7 +95,7 @@ export default function UrlConverter() {
                   </label>
                   <Input
                     type="url"
-                    placeholder="https://image-proxy-52mx.onrender.com/api/media/serve/filename.png"
+                    placeholder="https://image-proxy-52mx.onrender.com/image/api/media/serve/filename.png"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
                     disabled={isConverting}
@@ -104,7 +104,7 @@ export default function UrlConverter() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setImageUrl("https://image-proxy-52mx.onrender.com/api/media/serve/city-scape")}
+                      onClick={() => setImageUrl("https://image-proxy-52mx.onrender.com/image/api/media/serve/futuristic_cityscape.png")}
                     >
                       Test Proxy URL
                     </Button>
