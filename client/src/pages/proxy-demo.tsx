@@ -24,7 +24,8 @@ export default function ProxyDemo() {
     }
 
     const encodedUrl = encodeURIComponent(imageUrl.trim());
-    const proxy = `https://image.citydiscoverer.ai/api/proxy/image?url=${encodedUrl}`;
+    // Use the current domain for the proxy URL instead of hardcoded domain
+    const proxy = `/api/proxy/image?url=${encodedUrl}`;
     setProxyUrl(proxy);
     
     toast({
@@ -115,21 +116,21 @@ export default function ProxyDemo() {
                   
                   <div className="flex items-center gap-2">
                     <Input
-                      value={proxyUrl}
+                      value={`https://image.citydiscoverer.ai${proxyUrl}`}
                       readOnly
                       className="font-mono text-sm"
                     />
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(proxyUrl)}
+                      onClick={() => copyToClipboard(`https://image.citydiscoverer.ai${proxyUrl}`)}
                     >
-                      {copiedUrl === proxyUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copiedUrl === `https://image.citydiscoverer.ai${proxyUrl}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(proxyUrl, '_blank')}
+                      onClick={() => window.open(`https://image.citydiscoverer.ai${proxyUrl}`, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
@@ -147,6 +148,12 @@ export default function ProxyDemo() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  <div className="text-sm text-gray-600 p-3 bg-blue-50 rounded-lg">
+                    <p><strong>Proxy URL:</strong> {proxyUrl}</p>
+                    <p><strong>Original URL:</strong> {imageUrl}</p>
+                    <p><strong>Status:</strong> Testing proxy functionality...</p>
+                  </div>
+                  
                   <div className="border rounded-lg p-4 bg-white">
                     <div className="relative">
                       <img 
@@ -154,20 +161,66 @@ export default function ProxyDemo() {
                         alt="Proxied image"
                         className="max-w-full h-auto rounded-lg shadow-sm"
                         onLoad={() => {
+                          console.log('Image loaded successfully via proxy:', proxyUrl);
                           toast({
-                            title: "Image Loaded",
-                            description: "Image successfully loaded through proxy",
+                            title: "Proxy Working!",
+                            description: "Image successfully loaded through your domain proxy",
                           });
                         }}
                         onError={(e) => {
-                          console.error('Proxy image load error:', e);
+                          console.error('Proxy image load failed');
+                          console.error('Proxy URL:', proxyUrl);
+                          console.error('Original URL:', imageUrl);
+                          console.error('Error event:', e);
                           toast({
-                            title: "Image Load Failed",
-                            description: "Check browser console for details",
+                            title: "Proxy Load Failed",
+                            description: "Check the browser console for debugging details",
                             variant: "destructive",
                           });
                         }}
                       />
+                      
+                      <div className="mt-4 space-y-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            console.log('Testing proxy URL:', proxyUrl);
+                            fetch(proxyUrl)
+                              .then(response => {
+                                console.log('Proxy response status:', response.status);
+                                console.log('Proxy response headers:', response.headers);
+                                return response.blob();
+                              })
+                              .then(blob => {
+                                console.log('Proxy blob size:', blob.size, 'bytes');
+                                console.log('Proxy blob type:', blob.type);
+                                toast({
+                                  title: "Proxy Test Result",
+                                  description: `Retrieved ${blob.size} bytes of ${blob.type}`,
+                                });
+                              })
+                              .catch(error => {
+                                console.error('Proxy fetch error:', error);
+                                toast({
+                                  title: "Proxy Test Failed",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                              });
+                          }}
+                        >
+                          Test Proxy Fetch
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(proxyUrl, '_blank')}
+                        >
+                          Open Proxy URL
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   
