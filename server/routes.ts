@@ -329,8 +329,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const contentType = response.headers.get('content-type') || '';
       
-      // Validate content type is actually an image
-      if (!contentType.startsWith('image/')) {
+      // Validate content type is actually an image (be flexible with proxy services)
+      if (!contentType.startsWith('image/') && contentType !== 'application/octet-stream') {
         throw new Error(`URL does not point to an image. Content-Type: ${contentType}`);
       }
 
@@ -348,12 +348,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error('URL returned HTML instead of image data. Please check the URL is a direct link to an image file.');
       }
 
-      // Generate filename - use title if provided, otherwise convert timestamp
-      const baseFilename = title || `converted-${Date.now()}`;
-      const extension = contentType.includes('png') ? 'png' : 
-                       contentType.includes('gif') ? 'gif' :
-                       contentType.includes('webp') ? 'webp' : 'jpg';
-      const filename = title ? `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}.${extension}` : `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}-${Date.now()}.${extension}`;
+      // Generate filename - use title if provided, otherwise extract from URL or timestamp
+      let baseFilename = title;
+      
+      // If no title provided, try to extract filename from URL
+      if (!baseFilename) {
+        const urlPath = new URL(imageUrl).pathname;
+        const urlFilename = urlPath.split('/').pop();
+        if (urlFilename && urlFilename.includes('.')) {
+          baseFilename = urlFilename.split('.')[0];
+        } else if (urlFilename) {
+          baseFilename = urlFilename;
+        } else {
+          baseFilename = `converted-${Date.now()}`;
+        }
+      }
+      
+      // Determine file extension
+      let extension = 'jpg'; // default
+      if (contentType.includes('png')) extension = 'png';
+      else if (contentType.includes('gif')) extension = 'gif';
+      else if (contentType.includes('webp')) extension = 'webp';
+      else if (contentType === 'application/octet-stream') {
+        // Try to detect from buffer or URL
+        const urlPath = new URL(imageUrl).pathname;
+        const urlExt = urlPath.split('.').pop();
+        if (urlExt && ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(urlExt.toLowerCase())) {
+          extension = urlExt.toLowerCase() === 'jpeg' ? 'jpg' : urlExt.toLowerCase();
+        } else {
+          // Try to detect from buffer
+          const bufferStart = buffer.toString('hex', 0, 8);
+          if (bufferStart.startsWith('89504e47')) extension = 'png';
+          else if (bufferStart.startsWith('ffd8ff')) extension = 'jpg';
+          else if (bufferStart.startsWith('47494638')) extension = 'gif';
+        }
+      }
+      
+      const filename = `${baseFilename.replace(/[^a-zA-Z0-9-]/g, '-')}.${extension}`;
       const filePath = path.join('uploads', filename);
 
       // Ensure uploads directory exists

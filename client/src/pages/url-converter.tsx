@@ -95,11 +95,27 @@ export default function UrlConverter() {
                   </label>
                   <Input
                     type="url"
-                    placeholder="https://example.com/image.jpg or paste your GPT generated URL"
+                    placeholder="https://image-proxy-52mx.onrender.com/api/media/serve/filename"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
                     disabled={isConverting}
                   />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImageUrl("https://image-proxy-52mx.onrender.com/api/media/serve/city-scape")}
+                    >
+                      Test Proxy URL
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImageUrl("")}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
