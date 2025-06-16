@@ -108,15 +108,13 @@ export default function PasteConverter() {
       
       // Generate production domain URLs for Facebook compatibility
       const productionDomain = 'image.citydiscoverer.ai';
-      const publicUrl = `https://${productionDomain}/img/${file.filename}`;
       const productionUrl = `https://${productionDomain}/api/media/serve/${file.filename}`;
       
       const transformedResult = {
         success: true,
         embeddableUrl: productionUrl,
         directUrl: productionUrl,
-        publicUrl: publicUrl,
-        facebookUrl: publicUrl,
+        facebookUrl: productionUrl,
         file: file,
         variations: {
           thumbnail: `${file.embeddableUrl}?w=300&h=200&fit=crop&crop=center`,
@@ -344,9 +342,9 @@ export default function PasteConverter() {
                   
                   {/* Facebook URL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-blue-600 uppercase">Facebook URL (Recommended)</label>
+                    <label className="text-xs font-medium text-blue-600 uppercase">Facebook URL (Direct Image)</label>
                     <Input
-                      value={result.facebookUrl || result.publicUrl}
+                      value={result.facebookUrl || result.directUrl}
                       readOnly
                       className="font-mono text-sm"
                     />
@@ -354,21 +352,21 @@ export default function PasteConverter() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => copyToClipboard(result.facebookUrl || result.publicUrl)}
+                        onClick={() => copyToClipboard(result.facebookUrl || result.directUrl)}
                         className="flex-1"
                       >
-                        {copiedUrl === (result.facebookUrl || result.publicUrl) ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedUrl === (result.facebookUrl || result.directUrl) ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
                         Copy Facebook URL
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(result.facebookUrl || result.publicUrl, '_blank')}
+                        onClick={() => window.open(result.facebookUrl || result.directUrl, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500">Use this URL directly in Facebook posts - no authentication required</p>
+                    <p className="text-xs text-gray-500">Direct image URL with proper content-type for Facebook posting</p>
                   </div>
 
                   {/* WordPress HTML */}
