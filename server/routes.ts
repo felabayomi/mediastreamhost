@@ -97,8 +97,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Cache-Control': 'public, max-age=86400',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer',
         'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Referrer-Policy': 'no-referrer-when-downgrade',
         'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
       });
       
@@ -610,6 +612,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Failed to list backups',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // WordPress shortcode generator endpoint
+  app.get("/api/wordpress/shortcode/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { w = 600, h = 300, alt = 'hosted-image' } = req.query;
+      
+      const files = await storage.getAllMediaFiles();
+      const file = files.find(f => f.filename === filename);
+      
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+
+      const currentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+      const baseUrl = currentDomain ? `https://${currentDomain}` : 'http://localhost:5000';
+      const imageUrl = `${baseUrl}/api/media/serve/${filename}?w=${w}&h=${h}&fit=crop&crop=center&q=80`;
+      
+      // Generate WordPress-compatible shortcode
+      const shortcode = `[embed]${imageUrl}[/embed]`;
+      
+      // Also provide HTML alternatives
+      const htmlCode = `<img src="${imageUrl}" alt="${alt}" style="max-width: 100%; height: auto;" />`;
+      const markdownCode = `![${alt}](${imageUrl})`;
+      
+      res.json({
+        shortcode,
+        html: htmlCode,
+        markdown: markdownCode,
+        directUrl: imageUrl,
+        instructions: {
+          shortcode: "Paste this shortcode directly into WordPress editor (works in both Visual and Text mode)",
+          html: "Use this in WordPress Text/HTML editor mode only",
+          markdown: "Use this in markdown-enabled editors"
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to generate WordPress code' });
     }
   });
 
