@@ -107,7 +107,7 @@ export default function PasteConverter() {
       const file = data.files[0]; // Get the first uploaded file
       
       // Generate production domain URLs for Facebook compatibility
-      const productionDomain = 'imagediscoverer.xyz';
+      const productionDomain = 'image.citydiscoverer.ai';
       const publicUrl = `https://${productionDomain}/img/${file.filename}`;
       const productionUrl = `https://${productionDomain}/api/media/serve/${file.filename}`;
       
@@ -338,13 +338,42 @@ export default function PasteConverter() {
               <CardContent className="space-y-4">
                 <div className="space-y-4 p-4 bg-green-50 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-700">WordPress HTML Embed:</span>
+                    <span className="text-sm font-medium text-green-700">Production URLs (image.citydiscoverer.ai):</span>
                     <Badge variant="secondary">Ready to Use</Badge>
                   </div>
                   
-                  {/* HTML Embed Code */}
+                  {/* Facebook URL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-600 uppercase">HTML Embed (Optimized Size)</label>
+                    <label className="text-xs font-medium text-blue-600 uppercase">Facebook URL (Recommended)</label>
+                    <Input
+                      value={result.facebookUrl || result.publicUrl}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(result.facebookUrl || result.publicUrl)}
+                        className="flex-1"
+                      >
+                        {copiedUrl === (result.facebookUrl || result.publicUrl) ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        Copy Facebook URL
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(result.facebookUrl || result.publicUrl, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">Use this URL directly in Facebook posts - no authentication required</p>
+                  </div>
+
+                  {/* WordPress HTML */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-600 uppercase">WordPress HTML</label>
                     <Input
                       value={`<img src="${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain" alt="hosted-image" style="max-width: 100%; height: auto;" />`}
                       readOnly
@@ -361,12 +390,12 @@ export default function PasteConverter() {
                         Copy HTML
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500">Full image display without scrolling - paste in WordPress HTML editor</p>
+                    <p className="text-xs text-gray-500">Paste in WordPress HTML editor for full image display</p>
                   </div>
 
                   {/* Direct URL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-600 uppercase">Direct URL</label>
+                    <label className="text-xs font-medium text-gray-600 uppercase">Direct Image URL</label>
                     <Input
                       value={`${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain`}
                       readOnly

@@ -47,7 +47,7 @@ function getFileType(mimeType: string): 'image' | 'video' {
 
 function generateEmbeddableUrl(filename: string): string {
   // Always use production domain for universal access across all platforms
-  const productionDomain = 'imagediscoverer.xyz';
+  const productionDomain = 'image.citydiscoverer.ai';
   return `https://${productionDomain}/api/media/serve/${filename}`;
 }
 
