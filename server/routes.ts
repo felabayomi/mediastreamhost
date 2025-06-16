@@ -8,6 +8,7 @@ import { promises as fsPromises } from "fs";
 import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
+import { backupService } from "./backup";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -413,6 +414,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Starting data recovery scan...');
       
+      // Create backup before recovery
+      await backupService.createDatabaseBackup();
+      
       // Get all files in uploads directory
       const uploadFiles = await fsPromises.readdir(uploadsDir);
       const existingFiles = await storage.getAllMediaFiles();
@@ -442,6 +446,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               mimeType = 'image/gif';
             }
             
+            // Extract dimensions for PNG images
+            let width = null, height = null;
+            if (mimeType === 'image/png' && buffer.length >= 24) {
+              width = buffer.readUInt32BE(16);
+              height = buffer.readUInt32BE(20);
+            }
+            
             // Create database entry
             const newFile = await storage.createMediaFile({
               filename,
@@ -449,6 +460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               fileType,
               mimeType,
               size: stats.size,
+              width,
+              height,
               filePath: `uploads/${filename}`,
               embeddableUrl: generateEmbeddableUrl(filename)
             });
@@ -457,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Recovered: ${filename}`);
             
           } catch (error) {
-            console.warn(`Could not recover ${filename}:`, error.message);
+            console.warn(`Could not recover ${filename}:`, error instanceof Error ? error.message : 'Unknown error');
           }
         }
       }
@@ -474,6 +487,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: 'Recovery failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Create manual backup endpoint
+  app.post("/api/admin/backup", async (req, res) => {
+    try {
+      const backupFile = await backupService.createDatabaseBackup();
+      res.json({
+        success: true,
+        message: 'Backup created successfully',
+        backupFile: path.basename(backupFile)
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Backup failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // List backups endpoint
+  app.get("/api/admin/backups", async (req, res) => {
+    try {
+      const backups = await backupService.listBackups();
+      res.json({ success: true, backups });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to list backups',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
