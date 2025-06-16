@@ -111,9 +111,9 @@ export default function PasteConverter() {
         directUrl: file.embeddableUrl,
         file: file,
         variations: {
-          thumbnail: `${file.embeddableUrl}?w=300&h=300&fit=crop&crop=center`,
-          banner: `${file.embeddableUrl}?w=1200&h=400&fit=crop&crop=center`,
-          fullsize: `${file.embeddableUrl}?w=1200&h=800&fit=crop&crop=center`
+          thumbnail: `${file.embeddableUrl}?w=300&h=200&fit=crop&crop=center`,
+          banner: `${file.embeddableUrl}?w=800&h=300&fit=crop&crop=center`,
+          fullsize: `${file.embeddableUrl}?w=600&h=400&fit=contain`
         }
       };
       
@@ -330,15 +330,15 @@ export default function PasteConverter() {
               <CardContent className="space-y-4">
                 <div className="space-y-4 p-4 bg-green-50 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-700">WordPress Formats:</span>
+                    <span className="text-sm font-medium text-green-700">WordPress HTML Embed:</span>
                     <Badge variant="secondary">Ready to Use</Badge>
                   </div>
                   
-                  {/* WordPress Shortcode */}
+                  {/* HTML Embed Code */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-gray-600 uppercase">WordPress Shortcode (Recommended)</label>
+                    <label className="text-xs font-medium text-gray-600 uppercase">HTML Embed (Optimized Size)</label>
                     <Input
-                      value={`[embed]${result.directUrl || result.embeddableUrl}[/embed]`}
+                      value={`<img src="${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain" alt="hosted-image" style="max-width: 100%; height: auto;" />`}
                       readOnly
                       className="font-mono text-sm"
                     />
@@ -346,21 +346,21 @@ export default function PasteConverter() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => copyToClipboard(`[embed]${result.directUrl || result.embeddableUrl}[/embed]`)}
+                        onClick={() => copyToClipboard(`<img src="${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain" alt="hosted-image" style="max-width: 100%; height: auto;" />`)}
                         className="flex-1"
                       >
-                        {copiedUrl === `[embed]${result.directUrl || result.embeddableUrl}[/embed]` ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                        Copy Shortcode
+                        {copiedUrl === `<img src="${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain" alt="hosted-image" style="max-width: 100%; height: auto;" />` ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        Copy HTML
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500">Paste directly into WordPress editor (Visual or Text mode)</p>
+                    <p className="text-xs text-gray-500">Full image display without scrolling - paste in WordPress HTML editor</p>
                   </div>
 
                   {/* Direct URL */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-gray-600 uppercase">Direct URL</label>
                     <Input
-                      value={result.directUrl || result.embeddableUrl}
+                      value={`${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain`}
                       readOnly
                       className="font-mono text-sm"
                     />
@@ -368,41 +368,21 @@ export default function PasteConverter() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => copyToClipboard(result.directUrl || result.embeddableUrl)}
+                        onClick={() => copyToClipboard(`${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain`)}
                         className="flex-1"
                       >
-                        {copiedUrl === (result.directUrl || result.embeddableUrl) ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedUrl === `${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain` ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
                         Copy URL
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(result.directUrl || result.embeddableUrl, '_blank')}
+                        onClick={() => window.open(`${result.directUrl || result.embeddableUrl}?w=600&h=400&fit=contain`, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
-
-                  {/* HTML Code (for advanced users) */}
-                  <details className="space-y-2">
-                    <summary className="text-xs font-medium text-gray-600 uppercase cursor-pointer">HTML Code (Advanced)</summary>
-                    <Input
-                      value={`<img src="${result.directUrl || result.embeddableUrl}" alt="hosted-image" style="max-width: 100%; height: auto;" />`}
-                      readOnly
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(`<img src="${result.directUrl || result.embeddableUrl}" alt="hosted-image" style="max-width: 100%; height: auto;" />`)}
-                      className="w-full"
-                    >
-                      {copiedUrl === `<img src="${result.directUrl || result.embeddableUrl}" alt="hosted-image" style="max-width: 100%; height: auto;" />` ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                      Copy HTML
-                    </Button>
-                    <p className="text-xs text-gray-500">Use only in WordPress Text/HTML editor mode</p>
-                  </details>
                 </div>
 
                 {result.variations && (
