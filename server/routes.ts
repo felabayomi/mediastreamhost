@@ -408,6 +408,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Data recovery endpoint
+  app.post("/api/admin/recover-data", async (req, res) => {
+    try {
+      console.log('Starting data recovery scan...');
+      
+      // Get all files in uploads directory
+      const uploadFiles = await fsPromises.readdir(uploadsDir);
+      const existingFiles = await storage.getAllMediaFiles();
+      const existingFilenames = new Set(existingFiles.map(f => f.filename));
+      
+      const recoveredFiles = [];
+      
+      for (const filename of uploadFiles) {
+        if (filename === 'thumbnails' || existingFilenames.has(filename)) continue;
+        
+        const filePath = path.join(uploadsDir, filename);
+        const stats = await fsPromises.stat(filePath);
+        
+        if (stats.isFile()) {
+          try {
+            // Read file header to detect type
+            const buffer = await fsPromises.readFile(filePath, { encoding: null });
+            let mimeType = 'image/jpeg'; // default
+            let fileType = 'image';
+            
+            // Basic file type detection
+            if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+              mimeType = 'image/png';
+            } else if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+              mimeType = 'image/jpeg';
+            } else if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+              mimeType = 'image/gif';
+            }
+            
+            // Create database entry
+            const newFile = await storage.createMediaFile({
+              filename,
+              originalFilename: `recovered-${filename}`,
+              fileType,
+              mimeType,
+              size: stats.size,
+              filePath: `uploads/${filename}`,
+              embeddableUrl: generateEmbeddableUrl(filename)
+            });
+            
+            recoveredFiles.push(newFile);
+            console.log(`Recovered: ${filename}`);
+            
+          } catch (error) {
+            console.warn(`Could not recover ${filename}:`, error.message);
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Recovery complete. Restored ${recoveredFiles.length} files.`,
+        recoveredFiles: recoveredFiles.length,
+        files: recoveredFiles
+      });
+      
+    } catch (error) {
+      console.error('Recovery error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Recovery failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
