@@ -1,13 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Test Embed</title>
+    <title>Test Embed Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .working { border-color: green; background-color: #f0fff0; }
+        .error { border-color: red; background-color: #fff0f0; }
+        img { max-width: 100%; height: auto; margin: 10px 0; }
+        code { background: #f5f5f5; padding: 2px 5px; }
+    </style>
 </head>
 <body>
-    <h1>Testing Image Embed</h1>
-    <img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672?w=600&h=300&fit=crop&crop=center&q=80" alt="test-image" />
+    <h1>Embed URL Structure Test</h1>
     
-    <h2>Direct URL (no transforms)</h2>
-    <img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672" alt="test-image-direct" width="300" />
+    <div class="test-section working">
+        <h2>✓ Working Embed with Transformations</h2>
+        <p>URL: <code>?w=600&h=300&fit=crop&crop=center&q=80</code></p>
+        <img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672?w=600&h=300&fit=crop&crop=center&q=80" alt="test-image-transformed" />
+    </div>
+    
+    <div class="test-section working">
+        <h2>✓ Direct URL (no transforms)</h2>
+        <img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672" alt="test-image-direct" width="400" />
+    </div>
+    
+    <div class="test-section">
+        <h2>Expected Embed Code Structure</h2>
+        <p>The paste converter should generate URLs like this:</p>
+        <pre><code>&lt;img src="https://your-domain/api/media/serve/filename?w=600&h=300&fit=crop&crop=center&q=80" alt="filename" /&gt;</code></pre>
+    </div>
 </body>
 </html>

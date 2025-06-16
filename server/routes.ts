@@ -117,7 +117,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json(files);
+      // Filter out files that don't exist physically to prevent 404s
+      const existingFiles = files.filter(file => {
+        const exists = fs.existsSync(file.filePath);
+        if (!exists) {
+          console.log(`Filtering out missing file: ${file.filename}`);
+        }
+        return exists;
+      });
+      
+      res.json(existingFiles);
     } catch (error) {
       res.status(500).json({ message: 'Failed to get media files' });
     }
@@ -505,6 +514,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: 'Backup failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Production sync endpoint - manually add files from production
+  app.post("/api/admin/sync-production", async (req, res) => {
+    try {
+      const { files } = req.body;
+      
+      if (!files || !Array.isArray(files)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Files array is required' 
+        });
+      }
+
+      const syncedFiles = [];
+      const currentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+      
+      for (const fileData of files) {
+        try {
+          // Check if file already exists
+          const existingFiles = await storage.getAllMediaFiles();
+          const exists = existingFiles.find(f => f.filename === fileData.filename);
+          
+          if (!exists) {
+            // Update URL to use current domain
+            const embeddableUrl = currentDomain 
+              ? `https://${currentDomain}/api/media/serve/${fileData.filename}`
+              : `http://localhost:5000/api/media/serve/${fileData.filename}`;
+            
+            // Create database entry for production file
+            const mediaFile = await storage.createMediaFile({
+              filename: fileData.filename,
+              originalFilename: fileData.originalFilename || fileData.filename,
+              fileType: fileData.fileType || 'image',
+              mimeType: fileData.mimeType || 'image/jpeg',
+              size: fileData.size || 0,
+              width: fileData.width || null,
+              height: fileData.height || null,
+              filePath: `uploads/${fileData.filename}`,
+              embeddableUrl
+            });
+            
+            syncedFiles.push(mediaFile);
+          }
+        } catch (error) {
+          console.error(`Error syncing file ${fileData.filename}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Synced ${syncedFiles.length} files from production`,
+        syncedFiles: syncedFiles.length,
+        files: syncedFiles
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Production sync failed',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
