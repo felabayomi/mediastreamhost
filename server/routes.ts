@@ -60,6 +60,17 @@ function generateEmbeddableUrl(filename: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Handle CORS preflight requests for media serving
+  app.options('/api/media/serve/:filename', (req, res) => {
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+      'Access-Control-Max-Age': '86400',
+    });
+    res.status(204).send();
+  });
+
   // Serve uploaded files with optional transformations
   app.get('/api/media/serve/:filename', async (req, res) => {
     const { filename } = req.params;
@@ -80,9 +91,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Physical file not found' });
       }
 
-      // Set appropriate content type
-      res.set('Content-Type', file.mimeType);
-      res.set('Cache-Control', 'public, max-age=86400');
+      // Set CORS headers for WordPress and external embedding
+      res.set({
+        'Content-Type': file.mimeType,
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+        'X-Content-Type-Options': 'nosniff',
+        'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
+      });
       
       // Use absolute path for sendFile
       res.sendFile(path.resolve(file.filePath));
