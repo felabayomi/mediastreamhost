@@ -91,17 +91,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Physical file not found' });
       }
 
-      // Set CORS headers for WordPress and external embedding
+      // Set CORS headers for WordPress, Facebook, and external embedding
       res.set({
         'Content-Type': file.mimeType,
         'Cache-Control': 'public, max-age=86400',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'SAMEORIGIN',
         'Referrer-Policy': 'no-referrer-when-downgrade',
         'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
+        // Facebook-specific headers
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Access-Control-Allow-Credentials': 'false',
       });
       
       // Use absolute path for sendFile
