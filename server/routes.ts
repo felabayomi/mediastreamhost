@@ -45,28 +45,17 @@ function getFileType(mimeType: string): 'image' | 'video' {
 }
 
 function generateEmbeddableUrl(filename: string): string {
-  // Check for production deployment domain first
-  let baseUrl = process.env.REPLIT_DOMAINS;
-  let protocol = 'https';
+  // Always use the current production domain for universal access
+  const currentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
   
-  // If not in production, use dev domain
-  if (!baseUrl && process.env.REPLIT_DEV_DOMAIN) {
-    baseUrl = process.env.REPLIT_DEV_DOMAIN;
-    protocol = 'https';
+  if (currentDomain) {
+    // Use the main domain for all URLs to ensure they work across environments
+    const baseUrl = currentDomain.includes(',') ? currentDomain.split(',')[0].trim() : currentDomain;
+    return `https://${baseUrl}/api/media/serve/${filename}`;
   }
   
-  // Fallback to localhost for local development
-  if (!baseUrl) {
-    baseUrl = 'localhost:5000';
-    protocol = 'http';
-  }
-  
-  // If REPLIT_DOMAINS contains multiple domains, use the first one
-  if (baseUrl && baseUrl.includes(',')) {
-    baseUrl = baseUrl.split(',')[0].trim();
-  }
-  
-  return `${protocol}://${baseUrl}/api/media/serve/${filename}`;
+  // Fallback for local development only
+  return `http://localhost:5000/api/media/serve/${filename}`;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
