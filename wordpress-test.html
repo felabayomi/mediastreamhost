@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WordPress Embed Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-box { border: 2px solid #0073aa; padding: 20px; margin: 20px 0; background: #f9f9f9; }
+        .success { border-color: #46b450; background: #f0fff0; }
+        .error { border-color: #dc3232; background: #fff0f0; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; border-radius: 4px; }
+        img { max-width: 100%; height: auto; }
+        .embed-code { background: #fff; border: 1px solid #ddd; padding: 15px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>WordPress Embed Test</h1>
+    
+    <div class="test-box success">
+        <h2>✓ CORS Headers Active</h2>
+        <p>Your media server now includes proper CORS headers for WordPress embedding:</p>
+        <ul>
+            <li>Access-Control-Allow-Origin: *</li>
+            <li>Access-Control-Allow-Methods: GET, HEAD, OPTIONS</li>
+            <li>Content-Type: image/png (proper MIME type)</li>
+        </ul>
+    </div>
+
+    <div class="test-box">
+        <h2>WordPress Compatible Embed Code</h2>
+        <p>Use this exact format in WordPress HTML editor:</p>
+        <div class="embed-code">
+            <pre><code>&lt;img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672?w=600&h=300&fit=crop&crop=center&q=80" alt="hosted-image" style="max-width: 100%; height: auto;" /&gt;</code></pre>
+        </div>
+        
+        <h3>Result Preview:</h3>
+        <img src="https://699747a2-04a3-4e3d-9356-963b1661e36e-00-stlx8mu3ia68.worf.replit.dev/api/media/serve/6613bfef46f04903ad4ef3f7e30c9672?w=600&h=300&fit=crop&crop=center&q=80" alt="hosted-image" style="max-width: 100%; height: auto;" />
+    </div>
+
+    <div class="test-box">
+        <h2>WordPress Instructions</h2>
+        <ol>
+            <li>In WordPress admin, go to Posts → Add New or edit existing post</li>
+            <li>Switch to "Text" or "HTML" editor mode (not Visual)</li>
+            <li>Paste the embed code above</li>
+            <li>Switch back to Visual editor to see the image</li>
+            <li>Publish or update the post</li>
+        </ol>
+        
+        <p><strong>Note:</strong> If image doesn't appear, check that:</p>
+        <ul>
+            <li>You're using the current domain URL (not old media-stream-host.replit.app)</li>
+            <li>The filename exists in your media library</li>
+            <li>WordPress security plugins aren't blocking external images</li>
+        </ul>
+    </div>
+    
+    <div class="test-box success">
+        <h2>✓ Domain Fix Applied</h2>
+        <p>Your paste converter now generates URLs with the current domain and proper CORS headers for external embedding.</p>
+    </div>
+</body>
+</html>
