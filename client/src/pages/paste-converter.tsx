@@ -105,10 +105,18 @@ export default function PasteConverter() {
       
       // Transform the upload response to match expected format
       const file = data.files[0]; // Get the first uploaded file
+      
+      // Generate production domain URLs for Facebook compatibility
+      const productionDomain = 'imagediscoverer.xyz';
+      const publicUrl = `https://${productionDomain}/img/${file.filename}`;
+      const productionUrl = `https://${productionDomain}/api/media/serve/${file.filename}`;
+      
       const transformedResult = {
         success: true,
-        embeddableUrl: file.embeddableUrl,
-        directUrl: file.embeddableUrl,
+        embeddableUrl: productionUrl,
+        directUrl: productionUrl,
+        publicUrl: publicUrl,
+        facebookUrl: publicUrl,
         file: file,
         variations: {
           thumbnail: `${file.embeddableUrl}?w=300&h=200&fit=crop&crop=center`,

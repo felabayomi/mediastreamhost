@@ -46,17 +46,9 @@ function getFileType(mimeType: string): 'image' | 'video' {
 }
 
 function generateEmbeddableUrl(filename: string): string {
-  // Always use the current production domain for universal access
-  const currentDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
-  
-  if (currentDomain) {
-    // Use the main domain for all URLs to ensure they work across environments
-    const baseUrl = currentDomain.includes(',') ? currentDomain.split(',')[0].trim() : currentDomain;
-    return `https://${baseUrl}/api/media/serve/${filename}`;
-  }
-  
-  // Fallback for local development only
-  return `http://localhost:5000/api/media/serve/${filename}`;
+  // Always use production domain for universal access across all platforms
+  const productionDomain = 'imagediscoverer.xyz';
+  return `https://${productionDomain}/api/media/serve/${filename}`;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -615,6 +607,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Failed to list backups',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Public image proxy for Facebook and social media
+  app.get('/img/:filename', async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const { w, h, q = 90 } = req.query;
+      
+      const files = await storage.getAllMediaFiles();
+      const file = files.find(f => f.filename === filename);
+      
+      if (!file) {
+        return res.status(404).send('Image not found');
+      }
+
+      if (!fs.existsSync(file.filePath)) {
+        return res.status(404).send('Image file not found');
+      }
+
+      // Set headers optimized for social media crawlers
+      res.set({
+        'Content-Type': file.mimeType,
+        'Cache-Control': 'public, max-age=31536000', // 1 year cache
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+        'X-Content-Type-Options': 'nosniff',
+        'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
+        'ETag': `"${file.filename}-${fs.statSync(file.filePath).mtime.getTime()}"`,
+        // Facebook-friendly headers
+        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+        'Referrer-Policy': 'unsafe-url',
+      });
+
+      // Handle HEAD requests (used by Facebook for validation)
+      if (req.method === 'HEAD') {
+        return res.end();
+      }
+
+      // Serve file directly - TODO: add Sharp transformations for w, h, q parameters
+      res.sendFile(path.resolve(file.filePath));
+    } catch (error) {
+      console.error('Public image serving error:', error);
+      res.status(500).send('Error serving image');
     }
   });
 
