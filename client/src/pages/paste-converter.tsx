@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export default function PasteConverter() {
   const { toast } = useToast();
   const pasteAreaRef = useRef<HTMLDivElement>(null);
 
-  const handlePaste = async (e: React.ClipboardEvent) => {
+  const handlePaste = async (e: React.ClipboardEvent | ClipboardEvent) => {
     e.preventDefault();
     const items = e.clipboardData?.items;
     
@@ -159,6 +159,72 @@ export default function PasteConverter() {
     setFilename("");
   };
 
+  // Handle right-click paste operations
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      // Only handle paste if the paste area is focused or clicked
+      if (document.activeElement === pasteAreaRef.current || 
+          pasteAreaRef.current?.contains(document.activeElement)) {
+        handlePaste(e);
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      // Enable right-click context menu on paste area
+      if (pasteAreaRef.current?.contains(e.target as Node)) {
+        // Don't prevent default to allow browser context menu
+      }
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    document.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      document.removeEventListener('paste', handleGlobalPaste);
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+
+  // Handle click to focus and enable paste
+  const handlePasteAreaClick = () => {
+    if (pasteAreaRef.current) {
+      pasteAreaRef.current.focus();
+      
+      // Try to read from clipboard directly on click
+      if (navigator.clipboard && navigator.clipboard.read) {
+        navigator.clipboard.read().then(clipboardItems => {
+          clipboardItems.forEach(clipboardItem => {
+            clipboardItem.types.forEach(type => {
+              if (type.startsWith('image/')) {
+                clipboardItem.getType(type).then(blob => {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const base64 = event.target?.result as string;
+                    setPastedImage(base64);
+                    
+                    if (!filename.trim()) {
+                      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                      setFilename(`pasted-image-${timestamp}.png`);
+                    }
+                    
+                    toast({
+                      title: "Image Pasted",
+                      description: "Image ready for conversion",
+                    });
+                  };
+                  reader.readAsDataURL(blob);
+                });
+              }
+            });
+          });
+        }).catch(() => {
+          // Clipboard API not available or permission denied
+          // Fall back to standard paste handling
+        });
+      }
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
@@ -180,6 +246,7 @@ export default function PasteConverter() {
               <div
                 ref={pasteAreaRef}
                 onPaste={handlePaste}
+                onClick={handlePasteAreaClick}
                 tabIndex={0}
                 className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer"
               >
@@ -205,7 +272,10 @@ export default function PasteConverter() {
                         Click here and paste your image
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        Use Ctrl+V (or Cmd+V on Mac) to paste an image from your clipboard
+                        Right-click and select "Paste" or use Ctrl+V (Cmd+V on Mac)
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Click this area first to enable clipboard access
                       </p>
                     </div>
                   </div>
