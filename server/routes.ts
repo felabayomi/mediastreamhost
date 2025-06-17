@@ -77,30 +77,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'File not found in database' });
       }
 
-      // Check if physical file exists using the stored file path
-      if (!fs.existsSync(file.filePath)) {
-        console.error(`Physical file not found: ${file.filePath}`);
-        return res.status(404).json({ message: 'Physical file not found' });
+      // Check if we have file content in database (new system)
+      if (file.fileContent) {
+        // Serve from database content (base64 decoded)
+        const fileBuffer = Buffer.from(file.fileContent, 'base64');
+        
+        // Set CORS headers for WordPress, Facebook, and external embedding
+        res.set({
+          'Content-Type': file.mimeType,
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN',
+          'Referrer-Policy': 'no-referrer-when-downgrade',
+          'Content-Length': fileBuffer.length.toString(),
+          // Facebook-specific headers
+          'X-Robots-Tag': 'noindex, nofollow',
+          'Access-Control-Allow-Credentials': 'false',
+        });
+        
+        return res.send(fileBuffer);
       }
-
-      // Set CORS headers for WordPress, Facebook, and external embedding
-      res.set({
-        'Content-Type': file.mimeType,
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Referrer-Policy': 'no-referrer-when-downgrade',
-        'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
-        // Facebook-specific headers
-        'X-Robots-Tag': 'noindex, nofollow',
-        'Access-Control-Allow-Credentials': 'false',
-      });
       
-      // Use absolute path for sendFile
-      res.sendFile(path.resolve(file.filePath));
+      // Fallback to physical file for older uploads
+      if (fs.existsSync(file.filePath)) {
+        // Set CORS headers for WordPress, Facebook, and external embedding
+        res.set({
+          'Content-Type': file.mimeType,
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN',
+          'Referrer-Policy': 'no-referrer-when-downgrade',
+          'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
+          // Facebook-specific headers
+          'X-Robots-Tag': 'noindex, nofollow',
+          'Access-Control-Allow-Credentials': 'false',
+        });
+        
+        return res.sendFile(path.resolve(file.filePath));
+      }
+      
+      // Neither database content nor physical file exists
+      console.error(`File not found anywhere: ${filename}`);
+      return res.status(404).json({ message: 'File content not available' });
+      
     } catch (error) {
       console.error('File serving error:', error);
       res.status(500).json({ message: 'Failed to serve file' });
@@ -132,16 +157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Filter out files that don't exist physically to prevent 404s
-      const existingFiles = files.filter(file => {
-        const exists = fs.existsSync(file.filePath);
-        if (!exists) {
+      // Filter out files that have neither database content nor physical files
+      const availableFiles = files.filter(file => {
+        // Has database content (new system) or physical file exists (legacy)
+        const hasContent = file.fileContent || fs.existsSync(file.filePath);
+        if (!hasContent) {
           console.log(`Filtering out missing file: ${file.filename}`);
         }
-        return exists;
+        return hasContent;
       });
       
-      res.json(existingFiles);
+      res.json(availableFiles);
     } catch (error) {
       res.status(500).json({ message: 'Failed to get media files' });
     }
