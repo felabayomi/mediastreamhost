@@ -4,14 +4,15 @@ import Header from "@/components/header";
 import FileGrid from "@/components/file-grid";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, RefreshCwIcon } from "lucide-react";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
   const [fileType, setFileType] = useState<string>("all");
 
-  const { data: files, isLoading } = useQuery({
+  const { data: files, isLoading, refetch } = useQuery({
     queryKey: ["/api/media", { search, type: fileType }],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -22,6 +23,8 @@ export default function MediaLibrary() {
       if (!response.ok) throw new Error('Failed to fetch files');
       return response.json();
     },
+    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30 seconds
   });
 
   return (
@@ -58,6 +61,14 @@ export default function MediaLibrary() {
                     <SelectItem value="video">Videos</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetch()}
+                  disabled={isLoading}
+                >
+                  <RefreshCwIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </div>
             
