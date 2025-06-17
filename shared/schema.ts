@@ -15,6 +15,7 @@ export const mediaFiles = pgTable("media_files", {
   filePath: text("file_path").notNull(),
   thumbnailPath: text("thumbnail_path"),
   embeddableUrl: text("embeddable_url").notNull(),
+  fileContent: text("file_content"), // base64 encoded file content for persistence
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
 });
 

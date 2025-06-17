@@ -161,6 +161,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileType = getFileType(file.mimetype);
         const embeddableUrl = generateEmbeddableUrl(file.filename);
 
+        // Read file content and encode as base64 for database storage
+        const fileContent = fs.readFileSync(file.path);
+        const base64Content = fileContent.toString('base64');
+
         const mediaFile = await storage.createMediaFile({
           filename: file.filename,
           originalFilename: file.originalname,
@@ -173,9 +177,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filePath: file.path,
           thumbnailPath: null, // TODO: Generate thumbnails
           embeddableUrl,
+          fileContent: base64Content,
         });
 
         uploadedFiles.push(mediaFile);
+        
+        // Clean up temporary file after storing in database
+        try {
+          fs.unlinkSync(file.path);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup temporary file:', file.path);
+        }
       }
 
       res.json({ files: uploadedFiles });
