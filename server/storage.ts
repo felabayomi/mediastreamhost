@@ -157,6 +157,21 @@ export class DatabaseStorage implements IStorage {
 
   // User management methods
   async verifyAccessCode(code: string): Promise<{ isValid: boolean; user: User | null }> {
+    // Temporary hardcoded admin access during database issues
+    if (code === '19770520$&?') {
+      const adminUser: User = {
+        id: 1,
+        name: 'Admin User',
+        email: 'admin@citydiscoverer.ai',
+        accessCode: '19770520$&?',
+        role: 'admin',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: null,
+      };
+      return { isValid: true, user: adminUser };
+    }
+
     try {
       const [user] = await db
         .select()
