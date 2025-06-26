@@ -12,19 +12,38 @@ export default function MediaLibrary() {
   const [search, setSearch] = useState("");
   const [fileType, setFileType] = useState<string>("all");
 
-  const { data: files, isLoading, refetch } = useQuery({
+  const { data: files, isLoading, refetch, error } = useQuery({
     queryKey: ["/api/media", { search, type: fileType }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (fileType && fileType !== 'all') params.append('type', fileType);
       
-      const response = await fetch(`/api/media?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch files');
-      return response.json();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        const response = await fetch(`/api/media?${params}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          if (response.status === 408) {
+            throw new Error('Request timeout - please try refreshing');
+          }
+          throw new Error('Failed to fetch files');
+        }
+        return response.json();
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     },
     refetchOnWindowFocus: true,
-    staleTime: 30000, // 30 seconds
+    staleTime: 60000, // 1 minute - longer cache to reduce database load
+    retry: 2,
+    retryDelay: 1000,
   });
 
   return (

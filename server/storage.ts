@@ -39,7 +39,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
-    return await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+    try {
+      const files = await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      return files;
+    } catch (error) {
+      console.error('Database error fetching media files:', error);
+      // Return empty array instead of crashing
+      return [];
+    }
   }
 
   async createMediaFile(insertFile: InsertMediaFile): Promise<MediaFile> {

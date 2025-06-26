@@ -145,31 +145,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all media files
   app.get('/api/media', async (req, res) => {
     try {
-      const { search, type } = req.query;
-      let files;
-      
-      if (search) {
-        files = await storage.searchMediaFiles(search as string, type as string);
+      // Set a timeout for the entire operation
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+
+      const fetchPromise = async () => {
+        const { search, type } = req.query;
+        let files;
+        
+        if (search) {
+          files = await storage.searchMediaFiles(search as string, type as string);
+        } else {
+          files = await storage.getAllMediaFiles();
+          if (type) {
+            files = files.filter(file => file.fileType === type);
+          }
+        }
+        
+        // Filter out files that have neither database content nor physical files
+        const availableFiles = files.filter(file => {
+          // Has database content (new system) or physical file exists (legacy)
+          const hasContent = file.fileContent || fs.existsSync(file.filePath);
+          if (!hasContent) {
+            console.log(`Filtering out missing file: ${file.filename}`);
+          }
+          return hasContent;
+        });
+        
+        return availableFiles;
+      };
+
+      const files = await Promise.race([fetchPromise(), timeoutPromise]);
+      res.json(files);
+    } catch (error: any) {
+      console.error('Media fetch error:', error);
+      if (error?.message === 'Request timeout') {
+        res.status(408).json({ message: 'Request timeout - please try again' });
       } else {
-        files = await storage.getAllMediaFiles();
-        if (type) {
-          files = files.filter(file => file.fileType === type);
-        }
+        res.status(500).json({ message: 'Failed to get media files' });
       }
-      
-      // Filter out files that have neither database content nor physical files
-      const availableFiles = files.filter(file => {
-        // Has database content (new system) or physical file exists (legacy)
-        const hasContent = file.fileContent || fs.existsSync(file.filePath);
-        if (!hasContent) {
-          console.log(`Filtering out missing file: ${file.filename}`);
-        }
-        return hasContent;
-      });
-      
-      res.json(availableFiles);
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to get media files' });
     }
   });
 
