@@ -33,20 +33,68 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private mediaFilesCache: MediaFile[] | null = null;
+  private cacheExpiry: number = 0;
+  private readonly CACHE_DURATION = 60000; // 1 minute
+  private isInitializing: boolean = false;
+
+  constructor() {
+    // Initialize cache immediately when the storage is created
+    this.initializeCache();
+  }
+
+  private async initializeCache() {
+    if (this.isInitializing) return;
+    this.isInitializing = true;
+    
+    try {
+      console.log('Initializing media files cache...');
+      const files = await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      this.mediaFilesCache = files;
+      this.cacheExpiry = Date.now() + this.CACHE_DURATION;
+      console.log(`Initial cache loaded with ${files.length} files`);
+    } catch (error) {
+      console.error('Failed to initialize cache:', error);
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
   async getMediaFile(id: number): Promise<MediaFile | undefined> {
-    const [file] = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id));
-    return file || undefined;
+    const files = await this.getAllMediaFiles();
+    return files.find(f => f.id === id);
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
+    // Return cached data if available and not expired
+    if (this.mediaFilesCache && Date.now() < this.cacheExpiry) {
+      return this.mediaFilesCache;
+    }
+
     try {
+      console.log('Fetching media files from database...');
       const files = await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      
+      // Update cache
+      this.mediaFilesCache = files;
+      this.cacheExpiry = Date.now() + this.CACHE_DURATION;
+      
+      console.log(`Cached ${files.length} media files`);
       return files;
     } catch (error) {
       console.error('Database error fetching media files:', error);
-      // Return empty array instead of crashing
+      // Return cached data if available, even if expired
+      if (this.mediaFilesCache) {
+        console.log('Returning stale cache due to database error');
+        return this.mediaFilesCache;
+      }
       return [];
     }
+  }
+
+  private invalidateCache() {
+    this.mediaFilesCache = null;
+    this.cacheExpiry = 0;
   }
 
   async createMediaFile(insertFile: InsertMediaFile): Promise<MediaFile> {
@@ -58,8 +106,12 @@ export class DatabaseStorage implements IStorage {
         height: insertFile.height ?? null,
         duration: insertFile.duration ?? null,
         thumbnailPath: insertFile.thumbnailPath ?? null,
+        fileContent: insertFile.fileContent ?? null,
       })
       .returning();
+    
+    // Invalidate cache after creating new file
+    this.invalidateCache();
     return file;
   }
 
@@ -68,6 +120,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(conversions).where(eq(conversions.mediaFileId, id));
     // Then delete the media file
     await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
+    // Invalidate cache after deletion
+    this.invalidateCache();
   }
 
   async searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]> {
