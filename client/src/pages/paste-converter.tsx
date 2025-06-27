@@ -18,10 +18,15 @@ export default function PasteConverter() {
   const pasteAreaRef = useRef<HTMLDivElement>(null);
 
   const handlePaste = async (e: React.ClipboardEvent | ClipboardEvent) => {
+    console.log('handlePaste called', e);
     e.preventDefault();
     const items = e.clipboardData?.items;
     
+    console.log('Clipboard items:', items);
+    console.log('Items length:', items?.length);
+    
     if (!items) {
+      console.log('No clipboard items found');
       toast({
         title: "Paste Failed",
         description: "No clipboard data found",
@@ -30,32 +35,57 @@ export default function PasteConverter() {
       return;
     }
 
+    let imageFound = false;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      console.log(`Item ${i}:`, item.type, item.kind);
       
       if (item.type.indexOf('image') !== -1) {
+        console.log('Image item found:', item.type);
+        imageFound = true;
         const file = item.getAsFile();
+        console.log('File from item:', file);
+        
         if (file) {
           const reader = new FileReader();
           reader.onload = (event) => {
             const base64 = event.target?.result as string;
+            console.log('Base64 loaded, length:', base64?.length);
             setPastedImage(base64);
             
             // Auto-generate filename if not provided
             if (!filename.trim()) {
               const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-              setFilename(`pasted-image-${timestamp}.png`);
+              const extension = file.type.split('/')[1] || 'png';
+              setFilename(`pasted-image-${timestamp}.${extension}`);
             }
             
             toast({
-              title: "Image Pasted",
-              description: "Image ready for conversion",
+              title: "Image Pasted Successfully",
+              description: `${file.type} image ready for conversion`,
+            });
+          };
+          reader.onerror = (error) => {
+            console.error('FileReader error:', error);
+            toast({
+              title: "Paste Failed",
+              description: "Failed to read pasted image",
+              variant: "destructive",
             });
           };
           reader.readAsDataURL(file);
         }
         break;
       }
+    }
+    
+    if (!imageFound) {
+      console.log('No image found in clipboard items');
+      toast({
+        title: "No Image Found",
+        description: "Please copy an image to your clipboard first",
+        variant: "destructive",
+      });
     }
   };
 
@@ -168,24 +198,27 @@ export default function PasteConverter() {
   // Handle right-click paste operations
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
-      // Only handle paste if the paste area is focused or clicked
-      if (document.activeElement === pasteAreaRef.current || 
-          pasteAreaRef.current?.contains(document.activeElement)) {
-        handlePaste(e);
-      }
+      console.log('Global paste event triggered', e);
+      console.log('Active element:', document.activeElement);
+      console.log('Paste area ref:', pasteAreaRef.current);
+      
+      // Always handle paste events when on the paste converter page
+      handlePaste(e);
     };
 
     const handleContextMenu = (e: MouseEvent) => {
       // Enable right-click context menu on paste area
       if (pasteAreaRef.current?.contains(e.target as Node)) {
-        // Don't prevent default to allow browser context menu
+        console.log('Context menu on paste area');
       }
     };
 
+    console.log('Setting up paste event listeners');
     document.addEventListener('paste', handleGlobalPaste);
     document.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
+      console.log('Cleaning up paste event listeners');
       document.removeEventListener('paste', handleGlobalPaste);
       document.removeEventListener('contextmenu', handleContextMenu);
     };
@@ -193,15 +226,21 @@ export default function PasteConverter() {
 
   // Handle click to focus and enable paste
   const handlePasteAreaClick = () => {
+    console.log('Paste area clicked');
     if (pasteAreaRef.current) {
       pasteAreaRef.current.focus();
+      console.log('Paste area focused');
       
       // Try to read from clipboard directly on click
       if (navigator.clipboard && navigator.clipboard.read) {
+        console.log('Attempting to read from clipboard...');
         navigator.clipboard.read().then(clipboardItems => {
+          console.log('Clipboard items found:', clipboardItems);
           clipboardItems.forEach(clipboardItem => {
             clipboardItem.types.forEach(type => {
+              console.log('Clipboard item type:', type);
               if (type.startsWith('image/')) {
+                console.log('Found image in clipboard, processing...');
                 clipboardItem.getType(type).then(blob => {
                   const reader = new FileReader();
                   reader.onload = (event) => {
@@ -210,12 +249,13 @@ export default function PasteConverter() {
                     
                     if (!filename.trim()) {
                       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-                      setFilename(`pasted-image-${timestamp}.png`);
+                      const extension = type.split('/')[1] || 'png';
+                      setFilename(`pasted-image-${timestamp}.${extension}`);
                     }
                     
                     toast({
-                      title: "Image Pasted",
-                      description: "Image ready for conversion",
+                      title: "Image Auto-Pasted",
+                      description: "Image loaded from clipboard",
                     });
                   };
                   reader.readAsDataURL(blob);
@@ -223,9 +263,20 @@ export default function PasteConverter() {
               }
             });
           });
-        }).catch(() => {
+        }).catch((error) => {
+          console.log('Clipboard read failed:', error);
           // Clipboard API not available or permission denied
           // Fall back to standard paste handling
+          toast({
+            title: "Click to Paste",
+            description: "Please use Ctrl+V (Cmd+V) to paste your image",
+          });
+        });
+      } else {
+        console.log('Clipboard API not available');
+        toast({
+          title: "Click to Paste",
+          description: "Please use Ctrl+V (Cmd+V) to paste your image",
         });
       }
     }
