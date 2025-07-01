@@ -218,8 +218,9 @@ export class DatabaseStorage implements IStorage {
 
   // User management methods
   async verifyAccessCode(code: string): Promise<{ isValid: boolean; user: User | null }> {
-    // Temporary hardcoded admin access during database issues
+    // Check hardcoded admin access codes first
     if (code === '19770520$&?') {
+      console.log('Admin access code verified: 19770520$&?');
       const adminUser: User = {
         id: 1,
         name: 'Admin User',
@@ -232,7 +233,23 @@ export class DatabaseStorage implements IStorage {
       };
       return { isValid: true, user: adminUser };
     }
+    
+    if (code === 'Bethel654356$') {
+      console.log('Bethel admin access code verified: Bethel654356$');
+      const bethelUser: User = {
+        id: 2,
+        name: 'Bethel Admin',
+        email: 'bethel@citydiscoverer.ai',
+        accessCode: 'Bethel654356$',
+        role: 'admin',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: null,
+      };
+      return { isValid: true, user: bethelUser };
+    }
 
+    // Check database for other users
     try {
       const [user] = await db
         .select()
@@ -240,9 +257,11 @@ export class DatabaseStorage implements IStorage {
         .where(and(eq(users.accessCode, code), eq(users.isActive, true)));
       
       if (user) {
+        console.log('Database user verified:', user.name);
         return { isValid: true, user };
       }
       
+      console.log('Access code not found:', code);
       return { isValid: false, user: null };
     } catch (error) {
       console.error('Error verifying access code:', error);
