@@ -5,6 +5,7 @@ import { eq, desc, and, or, like } from "drizzle-orm";
 export interface IStorage {
   // Media files
   getMediaFile(id: number): Promise<MediaFile | undefined>;
+  getMediaFileByFilename(filename: string): Promise<MediaFile | undefined>;
   getAllMediaFiles(): Promise<MediaFile[]>;
   createMediaFile(file: InsertMediaFile): Promise<MediaFile>;
   deleteMediaFile(id: number): Promise<void>;
@@ -63,6 +64,20 @@ export class DatabaseStorage implements IStorage {
   async getMediaFile(id: number): Promise<MediaFile | undefined> {
     const files = await this.getAllMediaFiles();
     return files.find(f => f.id === id);
+  }
+
+  async getMediaFileByFilename(filename: string): Promise<MediaFile | undefined> {
+    try {
+      const [file] = await db
+        .select()
+        .from(mediaFiles)
+        .where(eq(mediaFiles.filename, filename))
+        .limit(1);
+      return file || undefined;
+    } catch (error) {
+      console.error('Database error fetching media file by filename:', error);
+      return undefined;
+    }
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
