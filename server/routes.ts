@@ -69,9 +69,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { w, h, fit, crop } = req.query;
     
     try {
-      // Get file info from storage first
-      const files = await storage.getAllMediaFiles();
-      const file = files.find(f => f.filename === filename);
+      // Get file info from storage using efficient single-file lookup
+      const file = await storage.getMediaFileByFilename(filename);
       
       if (!file) {
         return res.status(404).json({ message: 'File not found in database' });
