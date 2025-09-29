@@ -203,14 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Filter out files that have neither database content nor physical files
-      const availableFiles = files.filter(file => {
-        // Has database content (new system) or physical file exists (legacy)
-        const hasContent = file.fileContent || fs.existsSync(file.filePath);
-        if (!hasContent) {
-          console.log(`Filtering out missing file: ${file.filename}`);
-        }
-        return hasContent;
-      });
+      // Since cache excludes fileContent for performance, use a dedicated method
+      const availableFiles = await storage.getAvailableMediaFiles(files);
       
       res.json(availableFiles);
     } catch (error: any) {

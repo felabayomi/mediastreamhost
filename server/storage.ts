@@ -1,12 +1,14 @@
 import { mediaFiles, conversions, users, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like } from "drizzle-orm";
+import { eq, desc, and, or, like, inArray, isNotNull } from "drizzle-orm";
+import fs from "fs";
 
 export interface IStorage {
   // Media files
   getMediaFile(id: number): Promise<MediaFile | undefined>;
   getMediaFileByFilename(filename: string): Promise<MediaFile | undefined>;
   getAllMediaFiles(): Promise<MediaFile[]>;
+  getAvailableMediaFiles(files: MediaFile[]): Promise<MediaFile[]>;
   createMediaFile(file: InsertMediaFile): Promise<MediaFile>;
   deleteMediaFile(id: number): Promise<void>;
   searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]>;
@@ -172,6 +174,51 @@ export class DatabaseStorage implements IStorage {
     await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
     // Invalidate cache after deletion
     this.invalidateCache();
+  }
+
+  async getAvailableMediaFiles(files: MediaFile[]): Promise<MediaFile[]> {
+    try {
+      // Extract filenames for efficient batch lookup
+      const filenames = files.map(f => f.filename);
+      
+      // Single query to get files with content
+      const filesWithContent = await db
+        .select({ filename: mediaFiles.filename })
+        .from(mediaFiles)
+        .where(
+          and(
+            inArray(mediaFiles.filename, filenames),
+            isNotNull(mediaFiles.fileContent)
+          )
+        );
+      
+      const contentFilenames = new Set(filesWithContent.map(f => f.filename));
+      
+      // Filter the original files and check for physical files
+      const availableFiles = files.filter(file => {
+        const hasDbContent = contentFilenames.has(file.filename);
+        const hasPhysicalFile = fs.existsSync(file.filePath);
+        
+        if (!hasDbContent && !hasPhysicalFile) {
+          console.log(`Filtering out missing file: ${file.filename}`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      return availableFiles;
+    } catch (error) {
+      console.error('Error filtering available files:', error);
+      // Fallback to checking physical files only
+      return files.filter(file => {
+        const hasPhysicalFile = fs.existsSync(file.filePath);
+        if (!hasPhysicalFile) {
+          console.log(`Filtering out missing file: ${file.filename}`);
+        }
+        return hasPhysicalFile;
+      });
+    }
   }
 
   async searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]> {
