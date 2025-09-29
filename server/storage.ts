@@ -50,8 +50,25 @@ export class DatabaseStorage implements IStorage {
     
     try {
       console.log('Initializing media files cache...');
-      const files = await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
-      this.mediaFilesCache = files;
+      // Exclude large fileContent field to avoid loading massive amounts of data on startup
+      const files = await db.select({
+        id: mediaFiles.id,
+        filename: mediaFiles.filename,
+        originalFilename: mediaFiles.originalFilename,
+        mimeType: mediaFiles.mimeType,
+        size: mediaFiles.size,
+        filePath: mediaFiles.filePath,
+        embeddableUrl: mediaFiles.embeddableUrl,
+        fileType: mediaFiles.fileType,
+        width: mediaFiles.width,
+        height: mediaFiles.height,
+        duration: mediaFiles.duration,
+        thumbnailPath: mediaFiles.thumbnailPath,
+        uploadedAt: mediaFiles.uploadedAt,
+      }).from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      
+      // Add null fileContent to maintain type compatibility while saving memory
+      this.mediaFilesCache = files.map(file => ({ ...file, fileContent: null }));
       this.cacheExpiry = Date.now() + this.CACHE_DURATION;
       console.log(`Initial cache loaded with ${files.length} files`);
     } catch (error) {
@@ -88,14 +105,32 @@ export class DatabaseStorage implements IStorage {
 
     try {
       console.log('Fetching media files from database...');
-      const files = await db.select().from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      // Exclude large fileContent field to avoid massive payloads - it's only needed for serving individual files
+      const files = await db.select({
+        id: mediaFiles.id,
+        filename: mediaFiles.filename,
+        originalFilename: mediaFiles.originalFilename,
+        mimeType: mediaFiles.mimeType,
+        size: mediaFiles.size,
+        filePath: mediaFiles.filePath,
+        embeddableUrl: mediaFiles.embeddableUrl,
+        fileType: mediaFiles.fileType,
+        width: mediaFiles.width,
+        height: mediaFiles.height,
+        duration: mediaFiles.duration,
+        thumbnailPath: mediaFiles.thumbnailPath,
+        uploadedAt: mediaFiles.uploadedAt,
+      }).from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
+      
+      // Add null fileContent to maintain type compatibility while saving memory
+      const filesWithNullContent = files.map(file => ({ ...file, fileContent: null }));
       
       // Update cache
-      this.mediaFilesCache = files;
+      this.mediaFilesCache = filesWithNullContent;
       this.cacheExpiry = Date.now() + this.CACHE_DURATION;
       
       console.log(`Cached ${files.length} media files`);
-      return files;
+      return filesWithNullContent;
     } catch (error) {
       console.error('Database error fetching media files:', error);
       // Return cached data if available, even if expired
