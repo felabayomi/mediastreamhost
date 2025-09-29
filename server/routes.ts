@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { promises as fsPromises } from "fs";
+import { createHash } from "crypto";
 import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
@@ -76,15 +77,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'File not found in database' });
       }
 
+      // Generate ETag and Last-Modified for caching
+      const lastModified = file.uploadedAt.toUTCString();
+      let etag: string;
+      let fileBuffer: Buffer | null = null;
+      
       // Check if we have file content in database (new system)
       if (file.fileContent) {
-        // Serve from database content (base64 decoded)
-        const fileBuffer = Buffer.from(file.fileContent, 'base64');
+        // Generate ETag from file content hash
+        etag = `"${createHash('md5').update(file.fileContent).digest('hex')}"`;
+        
+        // Check conditional headers for 304 response
+        const ifNoneMatch = req.headers['if-none-match'];
+        const ifModifiedSince = req.headers['if-modified-since'];
+        
+        if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= file.uploadedAt)) {
+          // Set caching headers for 304 response
+          res.set({
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'ETag': etag,
+            'Last-Modified': lastModified,
+            'Access-Control-Allow-Origin': '*',
+          });
+          return res.status(304).end();
+        }
+        
+        // Decode base64 only if we need to send the file
+        fileBuffer = Buffer.from(file.fileContent, 'base64');
         
         // Set CORS headers for WordPress, Facebook, and external embedding
         res.set({
           'Content-Type': file.mimeType,
-          'Cache-Control': 'public, max-age=86400',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'ETag': etag,
+          'Last-Modified': lastModified,
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
           'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
@@ -102,17 +128,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fallback to physical file for older uploads
       if (fs.existsSync(file.filePath)) {
+        const stats = fs.statSync(file.filePath);
+        const fileModified = stats.mtime.toUTCString();
+        etag = `"${stats.size}-${stats.mtime.getTime()}"`;
+        
+        // Check conditional headers for 304 response
+        const ifNoneMatch = req.headers['if-none-match'];
+        const ifModifiedSince = req.headers['if-modified-since'];
+        
+        if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= stats.mtime)) {
+          // Set caching headers for 304 response
+          res.set({
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'ETag': etag,
+            'Last-Modified': fileModified,
+            'Access-Control-Allow-Origin': '*',
+          });
+          return res.status(304).end();
+        }
+        
         // Set CORS headers for WordPress, Facebook, and external embedding
         res.set({
           'Content-Type': file.mimeType,
-          'Cache-Control': 'public, max-age=86400',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'ETag': etag,
+          'Last-Modified': fileModified,
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
           'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
           'X-Content-Type-Options': 'nosniff',
           'X-Frame-Options': 'SAMEORIGIN',
           'Referrer-Policy': 'no-referrer-when-downgrade',
-          'Last-Modified': fs.statSync(file.filePath).mtime.toUTCString(),
           // Facebook-specific headers
           'X-Robots-Tag': 'noindex, nofollow',
           'Access-Control-Allow-Credentials': 'false',
