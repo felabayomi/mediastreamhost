@@ -27,6 +27,7 @@ interface ResizedImage {
   width: number;
   height: number;
   url: string;
+  localUrl: string;
 }
 
 export default function ImageResizer() {
@@ -193,6 +194,7 @@ export default function ImageResizer() {
             width: size.width,
             height: size.height,
             url: data.url,
+            localUrl: data.localUrl,
           });
         } catch (error) {
           console.error(`Error resizing for ${size.name}:`, error);
@@ -244,16 +246,16 @@ export default function ImageResizer() {
 
   const downloadImage = async (result: ResizedImage) => {
     try {
-      const response = await fetch(result.url);
+      const response = await fetch(result.localUrl);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = blobUrl;
       a.download = `${result.size.replace(/[^a-zA-Z0-9]/g, '_')}_${result.width}x${result.height}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
       
       toast({
         title: "Downloaded",
@@ -463,7 +465,7 @@ export default function ImageResizer() {
                     <div key={index} className="border rounded-lg overflow-hidden">
                       <div className="aspect-video bg-gray-100 relative">
                         <img
-                          src={result.url}
+                          src={result.localUrl}
                           alt={result.size}
                           className="w-full h-full object-contain"
                         />

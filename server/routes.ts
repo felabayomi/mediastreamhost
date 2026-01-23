@@ -818,6 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const productionDomain = 'image.citydiscoverer.ai';
         return res.json({
           url: `https://${productionDomain}/api/media/serve/${filename}`,
+          localUrl: `/api/media/serve/${filename}`,
           filename,
           width,
           height,
@@ -844,6 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productionDomain = 'image.citydiscoverer.ai';
       res.json({
         url: `https://${productionDomain}/api/media/serve/${filename}`,
+        localUrl: `/api/media/serve/${filename}`,
         filename,
         width,
         height,
