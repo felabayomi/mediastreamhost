@@ -777,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Image resize endpoint for device-specific dimensions
   app.post('/api/resize-image', async (req, res) => {
     try {
-      const { url, base64, width, height } = req.body;
+      const { url, base64, width, height, mode = 'scale' } = req.body;
 
       if ((!url && !base64) || !width || !height) {
         return res.status(400).json({ error: 'Image (URL or base64) and dimensions are required' });
@@ -798,20 +798,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageBuffer = Buffer.from(await response.arrayBuffer());
       }
 
-      // Get dominant color from original image for background
-      const { dominant } = await sharp(imageBuffer).stats();
-      const bgColor = { r: dominant.r, g: dominant.g, b: dominant.b };
+      // Get resize options based on mode
+      let resizeOptions: any = { width, height };
+      let needsFlatten = false;
+      let bgColor = { r: 255, g: 255, b: 255 };
 
-      // Resize the image using sharp - contain mode preserves all content
-      const resizedBuffer = await sharp(imageBuffer)
-        .resize(width, height, {
-          fit: 'contain',
-          position: 'center',
-          background: bgColor,
-        })
-        .flatten({ background: bgColor })
-        .png({ quality: 90 })
-        .toBuffer();
+      switch (mode) {
+        case 'scale':
+          // Scale proportionally - only specify width, height auto-calculates
+          resizeOptions = { width, withoutEnlargement: false };
+          break;
+        case 'stretch':
+          // Stretch to exact dimensions (may distort)
+          resizeOptions = { width, height, fit: 'fill' as const };
+          break;
+        case 'crop':
+          // Crop to fill exact dimensions (centers and crops excess)
+          resizeOptions = { width, height, fit: 'cover' as const, position: 'center' };
+          break;
+        case 'contain':
+          // Fit inside with background padding
+          const { dominant } = await sharp(imageBuffer).stats();
+          bgColor = { r: dominant.r, g: dominant.g, b: dominant.b };
+          resizeOptions = { width, height, fit: 'contain' as const, background: bgColor };
+          needsFlatten = true;
+          break;
+        default:
+          resizeOptions = { width, withoutEnlargement: false };
+      }
+
+      // Resize the image using sharp
+      let pipeline = sharp(imageBuffer).resize(resizeOptions);
+      if (needsFlatten) {
+        pipeline = pipeline.flatten({ background: bgColor });
+      }
+      const resizedBuffer = await pipeline.png({ quality: 90 }).toBuffer();
 
       // Generate a unique filename for the resized image
       const hash = createHash('md5').update(resizedBuffer).digest('hex').substring(0, 16);

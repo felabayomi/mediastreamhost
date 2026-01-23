@@ -3,9 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Smartphone, Tablet, Download, Copy, Check, Loader2, Upload, ImageIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/header";
+
+const RESIZE_MODES = [
+  { value: "scale", label: "Scale (keep proportions)", description: "Resize to fit width, height adjusts automatically" },
+  { value: "stretch", label: "Stretch to exact size", description: "Stretch image to exact dimensions" },
+  { value: "crop", label: "Crop to fill", description: "Fill dimensions, crop excess" },
+  { value: "contain", label: "Fit with padding", description: "Fit inside with background padding" },
+];
 
 const DEVICE_SIZES = {
   iphone: [
@@ -37,6 +45,7 @@ export default function ImageResizer() {
   const [results, setResults] = useState<ResizedImage[]>([]);
   const [copiedUrl, setCopiedUrl] = useState("");
   const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
+  const [resizeMode, setResizeMode] = useState("scale");
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -174,8 +183,8 @@ export default function ImageResizer() {
       for (const size of sizesToProcess) {
         try {
           const requestBody = uploadedImage 
-            ? { base64: uploadedImage, width: size.width, height: size.height }
-            : { url: imageUrl, width: size.width, height: size.height };
+            ? { base64: uploadedImage, width: size.width, height: size.height, mode: resizeMode }
+            : { url: imageUrl, width: size.width, height: size.height, mode: resizeMode };
 
           const response = await fetch('/api/resize-image', {
             method: 'POST',
@@ -427,6 +436,29 @@ export default function ImageResizer() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Resize Mode</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select value={resizeMode} onValueChange={setResizeMode}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RESIZE_MODES.map((mode) => (
+                    <SelectItem key={mode.value} value={mode.value}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{mode.label}</span>
+                        <span className="text-xs text-gray-500">{mode.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
 
           <div className="flex gap-4">
             <Button
