@@ -23,15 +23,17 @@ function AppContent() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Switch>
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/upload" component={Upload} />
-          <Route path="/paste" component={PasteConverter} />
-          <Route path="/media" component={MediaLibrary} />
-          <Route path="/resize" component={ImageResizer} />
-          <Route component={NotFound} />
-        </Switch>
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
+        <div className="flex-1 overflow-auto pt-16 md:pt-0">
+          <Switch>
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/upload" component={Upload} />
+            <Route path="/paste" component={PasteConverter} />
+            <Route path="/media" component={MediaLibrary} />
+            <Route path="/resize" component={ImageResizer} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
       </div>
     </div>
   );
