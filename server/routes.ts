@@ -49,11 +49,21 @@ function getFileType(mimeType: string): 'image' | 'video' {
 
 function generateEmbeddableUrl(filename: string): string {
   // Always use production domain for universal access across all platforms
-  const productionDomain = 'image.citydiscoverer.ai';
+  const productionDomain = 'mediahost.app';
   return `https://${productionDomain}/api/media/serve/${filename}`;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Redirect requests from old domain to new domain
+  app.use((req, res, next) => {
+    const host = req.get('host') || '';
+    if (host.includes('image.citydiscoverer.ai')) {
+      const newUrl = `https://mediahost.app${req.originalUrl}`;
+      return res.redirect(301, newUrl);
+    }
+    next();
+  });
+
   // Handle CORS preflight requests for media serving
   app.options('/api/media/serve/:filename', (req, res) => {
     res.set({
@@ -342,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'OpenAI API key not configured' });
       }
 
-      const baseUrl = 'https://image.citydiscoverer.ai';
+      const baseUrl = 'https://mediahost.app';
       const uploader = new GPTImageUploader(process.env.OPENAI_API_KEY, baseUrl);
       
       // Map style to OpenAI parameters
@@ -842,7 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if this file already exists
       const existingFile = await storage.getMediaFileByFilename(filename);
       if (existingFile) {
-        const productionDomain = 'image.citydiscoverer.ai';
+        const productionDomain = 'mediahost.app';
         return res.json({
           url: `https://${productionDomain}/api/media/serve/${filename}`,
           localUrl: `/api/media/serve/${filename}`,
@@ -869,7 +879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileContent: base64Content,
       });
 
-      const productionDomain = 'image.citydiscoverer.ai';
+      const productionDomain = 'mediahost.app';
       res.json({
         url: `https://${productionDomain}/api/media/serve/${filename}`,
         localUrl: `/api/media/serve/${filename}`,
