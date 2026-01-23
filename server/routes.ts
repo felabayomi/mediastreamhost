@@ -798,12 +798,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageBuffer = Buffer.from(await response.arrayBuffer());
       }
 
-      // Resize the image using sharp
+      // Get dominant color from original image for background
+      const { dominant } = await sharp(imageBuffer).stats();
+      const bgColor = { r: dominant.r, g: dominant.g, b: dominant.b };
+
+      // Resize the image using sharp - contain mode preserves all content
       const resizedBuffer = await sharp(imageBuffer)
         .resize(width, height, {
-          fit: 'cover',
+          fit: 'contain',
           position: 'center',
+          background: bgColor,
         })
+        .flatten({ background: bgColor })
         .png({ quality: 90 })
         .toBuffer();
 
