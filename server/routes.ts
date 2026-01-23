@@ -777,19 +777,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Image resize endpoint for device-specific dimensions
   app.post('/api/resize-image', async (req, res) => {
     try {
-      const { url, width, height } = req.body;
+      const { url, base64, width, height } = req.body;
 
-      if (!url || !width || !height) {
-        return res.status(400).json({ error: 'URL, width, and height are required' });
+      if ((!url && !base64) || !width || !height) {
+        return res.status(400).json({ error: 'Image (URL or base64) and dimensions are required' });
       }
 
-      // Fetch the image from URL
-      const response = await fetch(url);
-      if (!response.ok) {
-        return res.status(400).json({ error: 'Failed to fetch image from URL' });
-      }
+      let imageBuffer: Buffer;
 
-      const imageBuffer = Buffer.from(await response.arrayBuffer());
+      if (base64) {
+        // Handle base64 image data
+        const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+        imageBuffer = Buffer.from(base64Data, 'base64');
+      } else {
+        // Fetch the image from URL
+        const response = await fetch(url);
+        if (!response.ok) {
+          return res.status(400).json({ error: 'Failed to fetch image from URL' });
+        }
+        imageBuffer = Buffer.from(await response.arrayBuffer());
+      }
 
       // Resize the image using sharp
       const resizedBuffer = await sharp(imageBuffer)

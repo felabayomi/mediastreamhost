@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, Tablet, Download, Copy, Check, Loader2 } from "lucide-react";
+import { Smartphone, Tablet, Download, Copy, Check, Loader2, Upload, ImageIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/header";
 
@@ -27,16 +27,18 @@ interface ResizedImage {
   width: number;
   height: number;
   url: string;
-  blob?: Blob;
 }
 
 export default function ImageResizer() {
   const [imageUrl, setImageUrl] = useState("");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<ResizedImage[]>([]);
   const [copiedUrl, setCopiedUrl] = useState("");
   const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropAreaRef = useRef<HTMLDivElement>(null);
 
   const toggleSize = (sizeName: string) => {
     const newSelected = new Set(selectedSizes);
@@ -64,11 +66,87 @@ export default function ImageResizer() {
     setSelectedSizes(new Set());
   };
 
-  const handleResize = async () => {
-    if (!imageUrl.trim()) {
+  const handleFileUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
       toast({
-        title: "URL Required",
-        description: "Please enter an image URL",
+        title: "Invalid File",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      setUploadedImage(base64);
+      setImageUrl("");
+      toast({
+        title: "Image Loaded",
+        description: "Image ready for resizing",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handlePaste = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          handleFileUpload(file);
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, []);
+
+  const clearImage = () => {
+    setUploadedImage(null);
+    setImageUrl("");
+    setResults([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleResize = async () => {
+    const imageSource = uploadedImage || imageUrl.trim();
+    
+    if (!imageSource) {
+      toast({
+        title: "No Image",
+        description: "Please upload an image or enter a URL",
         variant: "destructive",
       });
       return;
@@ -94,14 +172,14 @@ export default function ImageResizer() {
 
       for (const size of sizesToProcess) {
         try {
+          const requestBody = uploadedImage 
+            ? { base64: uploadedImage, width: size.width, height: size.height }
+            : { url: imageUrl, width: size.width, height: size.height };
+
           const response = await fetch('/api/resize-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: imageUrl,
-              width: size.width,
-              height: size.height,
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           if (!response.ok) {
@@ -190,6 +268,14 @@ export default function ImageResizer() {
     }
   };
 
+  const downloadAll = async () => {
+    for (const result of results) {
+      await downloadImage(result);
+    }
+  };
+
+  const hasImage = uploadedImage || imageUrl.trim();
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
@@ -201,19 +287,76 @@ export default function ImageResizer() {
         <div className="max-w-6xl mx-auto space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Enter Image URL</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                Add Your Image
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {uploadedImage ? (
+                <div className="relative">
+                  <img 
+                    src={uploadedImage} 
+                    alt="Uploaded" 
+                    className="max-h-64 mx-auto rounded-lg shadow-md"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={clearImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center mt-2">
+                    <Badge variant="secondary">Image Ready</Badge>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  ref={dropAreaRef}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                >
+                  <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-lg font-medium text-gray-700">
+                    Drop an image here, click to upload, or paste (Ctrl+V)
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Supports JPG, PNG, GIF, WebP
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              )}
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">Or enter URL</span>
+                </div>
+              </div>
+
               <Input
                 type="url"
-                placeholder="https://example.com/image.jpg or paste from your media library"
+                placeholder="https://example.com/image.jpg"
                 value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  if (e.target.value) setUploadedImage(null);
+                }}
+                disabled={!!uploadedImage}
                 className="font-mono text-sm"
               />
-              <p className="text-sm text-gray-500">
-                Enter any image URL or use a URL from your Media Library
-              </p>
             </CardContent>
           </Card>
 
@@ -286,7 +429,7 @@ export default function ImageResizer() {
           <div className="flex gap-4">
             <Button
               onClick={handleResize}
-              disabled={isProcessing || !imageUrl.trim() || selectedSizes.size === 0}
+              disabled={isProcessing || !hasImage || selectedSizes.size === 0}
               className="flex-1"
             >
               {isProcessing ? (
@@ -307,8 +450,12 @@ export default function ImageResizer() {
 
           {results.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Resized Images</CardTitle>
+                <Button onClick={downloadAll} variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
