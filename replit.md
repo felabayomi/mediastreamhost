@@ -103,6 +103,7 @@ The application is configured for deployment on Replit with the following setup:
 
 ## Changelog
 
+- January 23, 2026. Added PWA capability with home screen icons, service worker for offline support, and mobile-responsive sidebar with hamburger menu
 - June 26, 2025. Initial setup
 
 ## User Preferences
