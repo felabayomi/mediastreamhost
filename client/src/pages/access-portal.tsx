@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, ArrowRight, Image, Zap, Cloud } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -10,8 +11,47 @@ import { useToast } from "@/hooks/use-toast";
 export default function AccessPortal() {
   const [accessCode, setAccessCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const savedCode = localStorage.getItem("rememberedAccessCode");
+    const savedExpiry = localStorage.getItem("rememberedAccessExpiry");
+    
+    if (savedCode && savedExpiry) {
+      const expiryDate = new Date(savedExpiry);
+      if (expiryDate > new Date()) {
+        autoLogin(savedCode);
+      } else {
+        localStorage.removeItem("rememberedAccessCode");
+        localStorage.removeItem("rememberedAccessExpiry");
+      }
+    }
+  }, []);
+
+  const autoLogin = async (code: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/access/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem("accessCode", code);
+        localStorage.setItem("userId", data.userId.toString());
+        setLocation("/dashboard");
+      }
+    } catch (error) {
+      localStorage.removeItem("rememberedAccessCode");
+      localStorage.removeItem("rememberedAccessExpiry");
+    } finally {
+      setIsLoading(false);
+    }
+  };
  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,20 +70,20 @@ export default function AccessPortal() {
         localStorage.setItem("accessCode", accessCode.trim());
         localStorage.setItem("userId", data.userId.toString());
         
+        if (rememberMe) {
+          const expiry = new Date();
+          expiry.setDate(expiry.getDate() + 30);
+          localStorage.setItem("rememberedAccessCode", accessCode.trim());
+          localStorage.setItem("rememberedAccessExpiry", expiry.toISOString());
+        }
+        
         toast({
           title: "Access Granted",
           description: `Welcome ${data.userName}! Redirecting to your media dashboard.`,
         });
         
-        // Redirect based on user role
         setTimeout(() => {
-          if (data.role === "admin") {
-            setLocation("/dashboard");
-          } else if (data.role === "developer") {
-            setLocation("/dashboard");
-          } else {
-            setLocation("/dashboard");
-          }
+          setLocation("/dashboard");
         }, 1500);
       } else {
         toast({
@@ -119,6 +159,21 @@ export default function AccessPortal() {
                 />
               </div>
               
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="rememberMe" 
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  className="border-white/40 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+                />
+                <label 
+                  htmlFor="rememberMe" 
+                  className="text-sm text-slate-300 cursor-pointer select-none"
+                >
+                  Keep me signed in for 30 days
+                </label>
+              </div>
+
               <Button 
                 type="submit" 
                 className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
