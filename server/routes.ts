@@ -10,6 +10,7 @@ import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
 import { backupService } from "./backup";
+import sharp from "sharp";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -770,6 +771,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: 'Failed to generate WordPress code' });
+    }
+  });
+
+  // Image resize endpoint for device-specific dimensions
+  app.post('/api/resize-image', async (req, res) => {
+    try {
+      const { url, width, height } = req.body;
+
+      if (!url || !width || !height) {
+        return res.status(400).json({ error: 'URL, width, and height are required' });
+      }
+
+      // Fetch the image from URL
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(400).json({ error: 'Failed to fetch image from URL' });
+      }
+
+      const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+      // Resize the image using sharp
+      const resizedBuffer = await sharp(imageBuffer)
+        .resize(width, height, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .png({ quality: 90 })
+        .toBuffer();
+
+      // Generate a unique filename for the resized image
+      const hash = createHash('md5').update(resizedBuffer).digest('hex').substring(0, 16);
+      const filename = `resized_${width}x${height}_${hash}.png`;
+      const filePath = path.join(uploadsDir, filename);
+
+      // Check if this file already exists
+      const existingFile = await storage.getMediaFileByFilename(filename);
+      if (existingFile) {
+        const productionDomain = 'image.citydiscoverer.ai';
+        return res.json({
+          url: `https://${productionDomain}/api/media/serve/${filename}`,
+          filename,
+          width,
+          height,
+        });
+      }
+
+      // Save the resized image to database
+      const base64Content = resizedBuffer.toString('base64');
+      const newFile = await storage.createMediaFile({
+        filename,
+        originalFilename: `resized_${width}x${height}.png`,
+        mimeType: 'image/png',
+        size: resizedBuffer.length,
+        filePath,
+        embeddableUrl: generateEmbeddableUrl(filename),
+        fileType: 'image',
+        width,
+        height,
+        duration: null,
+        thumbnailPath: null,
+        fileContent: base64Content,
+      });
+
+      const productionDomain = 'image.citydiscoverer.ai';
+      res.json({
+        url: `https://${productionDomain}/api/media/serve/${filename}`,
+        filename,
+        width,
+        height,
+      });
+    } catch (error) {
+      console.error('Image resize error:', error);
+      res.status(500).json({ error: 'Failed to resize image' });
     }
   });
 

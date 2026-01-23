@@ -10,7 +10,8 @@ import {
   UserIcon,
   SettingsIcon,
   Zap,
-  FileImage
+  FileImage,
+  Smartphone
 } from "lucide-react";
 
 const navigation = [
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Upload Files", href: "/upload", icon: UploadIcon },
   { name: "Paste to URL", href: "/paste", icon: LinkIcon },
   { name: "Media Library", href: "/media", icon: ImagesIcon },
+  { name: "Image Resizer", href: "/resize", icon: Smartphone },
   { name: "Conversions", href: "/conversions", icon: ServerCog },
   { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
 ];
