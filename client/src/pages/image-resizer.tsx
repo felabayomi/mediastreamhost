@@ -180,11 +180,51 @@ export default function ImageResizer() {
 
       const resizedImages: ResizedImage[] = [];
 
+      // If we have a base64 image, first upload it to get a URL
+      // This avoids body size limits when sending large images
+      let imageUrlToUse = imageUrl;
+      
+      if (uploadedImage) {
+        try {
+          // Upload the image first to get a URL
+          const uploadController = new AbortController();
+          const uploadTimeoutId = setTimeout(() => uploadController.abort(), 60000);
+          
+          const uploadResponse = await fetch('/api/upload-base64', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              base64Data: uploadedImage,
+              filename: `upload_${Date.now()}.png`
+            }),
+            signal: uploadController.signal,
+          });
+          
+          clearTimeout(uploadTimeoutId);
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload image for processing');
+          }
+          
+          const uploadData = await uploadResponse.json();
+          // Use the production URL for resizing
+          imageUrlToUse = uploadData.embeddableUrl;
+          console.log('Uploaded image for resizing:', imageUrlToUse);
+        } catch (uploadError: any) {
+          console.error('Failed to upload image:', uploadError);
+          toast({
+            title: "Upload Failed",
+            description: "Could not upload image for processing",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       for (const size of sizesToProcess) {
         try {
-          const requestBody = uploadedImage 
-            ? { base64: uploadedImage, width: size.width, height: size.height, mode: resizeMode }
-            : { url: imageUrl, width: size.width, height: size.height, mode: resizeMode };
+          const requestBody = { url: imageUrlToUse, width: size.width, height: size.height, mode: resizeMode };
 
           // Create AbortController for timeout
           const controller = new AbortController();
