@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mediahost-v1';
+const CACHE_NAME = 'mediahost-v2';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -32,7 +32,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests (POST, PUT, DELETE, etc.)
   if (event.request.method !== 'GET') return;
+  
+  // Never cache API calls - always fetch fresh
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
   
   event.respondWith(
     fetch(event.request)
