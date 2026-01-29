@@ -813,14 +813,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Re-encode the image to fix any corrupt/malformed data
       // This handles JPEGs with extraneous bytes or other issues
+      // Use failOnError: false to be lenient with minor corruption
       try {
-        imageBuffer = await sharp(imageBuffer)
+        imageBuffer = await sharp(imageBuffer, { failOnError: false })
           .png() // Convert to PNG to ensure clean data
           .toBuffer();
         console.log(`Image re-encoded successfully, new size: ${imageBuffer.length} bytes`);
       } catch (encodeError) {
         console.error('Failed to re-encode image:', encodeError);
-        return res.status(400).json({ error: 'Image appears to be corrupted or in an unsupported format' });
+        // Try one more time with even more lenient settings
+        try {
+          imageBuffer = await sharp(imageBuffer, { failOnError: false, limitInputPixels: false })
+            .toBuffer();
+          console.log('Image recovered with lenient settings');
+        } catch (secondError) {
+          console.error('Failed to recover image:', secondError);
+          return res.status(400).json({ error: 'Image appears to be corrupted or in an unsupported format' });
+        }
       }
 
       // Get resize options based on mode
@@ -843,7 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
         case 'contain':
           // Fit inside with background padding
-          const { dominant } = await sharp(imageBuffer).stats();
+          const { dominant } = await sharp(imageBuffer, { failOnError: false }).stats();
           bgColor = { r: dominant.r, g: dominant.g, b: dominant.b };
           resizeOptions = { width, height, fit: 'contain' as const, background: bgColor };
           needsFlatten = true;
@@ -852,8 +861,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           resizeOptions = { width, withoutEnlargement: false };
       }
 
-      // Resize the image using sharp
-      let pipeline = sharp(imageBuffer).resize(resizeOptions);
+      // Resize the image using sharp with lenient error handling
+      let pipeline = sharp(imageBuffer, { failOnError: false }).resize(resizeOptions);
       if (needsFlatten) {
         pipeline = pipeline.flatten({ background: bgColor });
       }
