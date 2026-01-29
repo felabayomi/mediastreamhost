@@ -186,14 +186,23 @@ export default function ImageResizer() {
             ? { base64: uploadedImage, width: size.width, height: size.height, mode: resizeMode }
             : { url: imageUrl, width: size.width, height: size.height, mode: resizeMode };
 
+          // Create AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+
           const response = await fetch('/api/resize-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
+            signal: controller.signal,
           });
 
+          clearTimeout(timeoutId);
+
           if (!response.ok) {
-            throw new Error(`Failed to resize for ${size.name}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`Resize failed for ${size.name}:`, response.status, errorData);
+            throw new Error(errorData.details || errorData.error || `Failed to resize for ${size.name}`);
           }
 
           const data = await response.json();
@@ -205,11 +214,14 @@ export default function ImageResizer() {
             url: data.url,
             localUrl: data.localUrl,
           });
-        } catch (error) {
+        } catch (error: any) {
+          const errorMessage = error.name === 'AbortError' 
+            ? 'Request timed out - image may be too large'
+            : error.message || 'Could not resize for this dimension';
           console.error(`Error resizing for ${size.name}:`, error);
           toast({
             title: `Failed: ${size.name}`,
-            description: "Could not resize for this dimension",
+            description: errorMessage,
             variant: "destructive",
           });
         }
