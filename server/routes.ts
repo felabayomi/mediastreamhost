@@ -811,6 +811,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageBuffer = Buffer.from(await response.arrayBuffer());
       }
 
+      // Re-encode the image to fix any corrupt/malformed data
+      // This handles JPEGs with extraneous bytes or other issues
+      try {
+        imageBuffer = await sharp(imageBuffer)
+          .png() // Convert to PNG to ensure clean data
+          .toBuffer();
+        console.log(`Image re-encoded successfully, new size: ${imageBuffer.length} bytes`);
+      } catch (encodeError) {
+        console.error('Failed to re-encode image:', encodeError);
+        return res.status(400).json({ error: 'Image appears to be corrupted or in an unsupported format' });
+      }
+
       // Get resize options based on mode
       let resizeOptions: any = { width, height };
       let needsFlatten = false;
