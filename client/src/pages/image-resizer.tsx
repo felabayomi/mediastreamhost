@@ -27,6 +27,10 @@ const DEVICE_SIZES = {
   ipad: [
     { name: "iPad Pro 11\"", width: 1668, height: 2224 },
     { name: "iPad Pro 11\" (Landscape)", width: 2224, height: 1668 },
+    { name: "iPad Pro 12.9\" (2064x2752)", width: 2064, height: 2752 },
+    { name: "iPad Pro 12.9\" (2752x2064)", width: 2752, height: 2064 },
+    { name: "iPad Pro 13\" (2048x2732)", width: 2048, height: 2732 },
+    { name: "iPad Pro 13\" (2732x2048)", width: 2732, height: 2048 },
   ],
 };
 
