@@ -194,8 +194,8 @@ export default function ImageResizer() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              base64Data: uploadedImage,
-              filename: `upload_${Date.now()}.png`
+              base64: uploadedImage,
+              filename: `resize_source_${Date.now()}.png`
             }),
             signal: uploadController.signal,
           });
