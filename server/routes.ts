@@ -788,6 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/resize-image', async (req, res) => {
     try {
       const { url, base64, width, height, mode = 'scale' } = req.body;
+      console.log(`Resize request: ${width}x${height}, mode: ${mode}, hasBase64: ${!!base64}, hasUrl: ${!!url}`);
 
       if ((!url && !base64) || !width || !height) {
         return res.status(400).json({ error: 'Image (URL or base64) and dimensions are required' });
@@ -798,7 +799,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (base64) {
         // Handle base64 image data
         const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+        console.log(`Base64 data length: ${base64Data.length}`);
         imageBuffer = Buffer.from(base64Data, 'base64');
+        console.log(`Image buffer size: ${imageBuffer.length} bytes`);
       } else {
         // Fetch the image from URL
         const response = await fetch(url);
@@ -889,7 +892,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Image resize error:', error);
-      res.status(500).json({ error: 'Failed to resize image' });
+      console.error('Resize error:', error);
+      res.status(500).json({ error: 'Failed to resize image', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
