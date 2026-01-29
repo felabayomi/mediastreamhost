@@ -803,12 +803,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageBuffer = Buffer.from(base64Data, 'base64');
         console.log(`Image buffer size: ${imageBuffer.length} bytes`);
       } else {
-        // Fetch the image from URL
-        const response = await fetch(url);
-        if (!response.ok) {
-          return res.status(400).json({ error: 'Failed to fetch image from URL' });
+        // Check if this is a URL from our own server - if so, load directly from database
+        const ourDomains = ['mediahost.app', 'localhost', '127.0.0.1'];
+        const urlObj = new URL(url);
+        const isOurServer = ourDomains.some(d => urlObj.hostname.includes(d));
+        
+        if (isOurServer && url.includes('/api/media/serve/')) {
+          // Extract filename and load from database
+          const filename = url.split('/api/media/serve/').pop()?.split('?')[0];
+          console.log(`Loading image from database: ${filename}`);
+          
+          if (filename) {
+            const file = await storage.getMediaFileByFilename(filename);
+            if (file?.fileContent) {
+              imageBuffer = Buffer.from(file.fileContent, 'base64');
+              console.log(`Loaded from database: ${imageBuffer.length} bytes`);
+            } else {
+              return res.status(400).json({ error: 'Image not found in database' });
+            }
+          } else {
+            return res.status(400).json({ error: 'Invalid image URL' });
+          }
+        } else {
+          // Fetch the image from external URL
+          const response = await fetch(url);
+          if (!response.ok) {
+            return res.status(400).json({ error: 'Failed to fetch image from URL' });
+          }
+          imageBuffer = Buffer.from(await response.arrayBuffer());
         }
-        imageBuffer = Buffer.from(await response.arrayBuffer());
       }
 
       // Re-encode the image to fix any corrupt/malformed data
