@@ -17,12 +17,10 @@ const RESIZE_MODES = [
 
 const DEVICE_SIZES = {
   iphone: [
-    { name: "iPhone 15 Pro Max", width: 1290, height: 2796 },
-    { name: "iPhone 15 Pro Max (Landscape)", width: 2796, height: 1290 },
-    { name: "iPhone 15 Plus", width: 1320, height: 2868 },
-    { name: "iPhone 15 Plus (Landscape)", width: 2868, height: 1320 },
-    { name: "iPhone 14 Pro Max", width: 1260, height: 2736 },
-    { name: "iPhone 14 Pro Max (Landscape)", width: 2736, height: 1260 },
+    { name: "iPhone 6.5\" (1242x2688)", width: 1242, height: 2688 },
+    { name: "iPhone 6.5\" (2688x1242)", width: 2688, height: 1242 },
+    { name: "iPhone 6.7\" (1284x2778)", width: 1284, height: 2778 },
+    { name: "iPhone 6.7\" (2778x1284)", width: 2778, height: 1284 },
   ],
   ipad: [
     { name: "iPad Pro 11\"", width: 1668, height: 2224 },
