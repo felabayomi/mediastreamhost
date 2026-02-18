@@ -1,0 +1,117 @@
+[debug] Calling HTTP endpoint
+[debug] Response received
+[debug] Calling HTTP endpoint
+[debug] Response received
+[debug] Failed Outbound Call
+
+Error talking to App
+Image upload failed due to URL parsing error from the generated file reference.
+
+Error: MediaHost could not parse a valid public URL from the provided file ID.
+Details: Failed to parse URL
+
+Verification Checklist
+Confirm MediaHost Action is correctly installed.
+
+Ensure Bearer authentication is properly configured.
+
+Verify the API base URL matches https://mediahost.app.
+
+Confirm multipart upload support is enabled.
+
+Check firewall/IP restrictions are not blocking outbound requests.
+
+Please confirm Action configuration, and I will immediately regenerate and reattempt upload.
+
+ChatGPT said:
+Good — this error is very specific and important:
+
+“MediaHost could not parse a valid public URL from the provided file ID.”
+
+This means the GPT is currently passing an internal file reference (like a file ID) instead of a public HTTPS image URL that MediaHost can fetch.
+
+Your MediaHost server is expecting:
+
+https://...
+But it's receiving something like:
+
+file-abc123...
+Which it cannot fetch externally — so parsing fails.
+
+🔍 What’s Actually Happening
+DALL-E in the GPT runtime does not always return a public HTTPS URL.
+Sometimes it returns a platform file reference instead.
+
+Your server cannot access that.
+
+So this is not:
+
+Authentication
+
+Firewall
+
+Multipart
+
+Storage permissions
+
+It’s a URL format mismatch.
+
+✅ The Correct Fix (Important)
+You need to modify your MediaHost upload endpoint to accept:
+
+Option A (Recommended)
+Accept multipart file upload directly, not image_url.
+
+Instead of:
+
+{
+  "image_url": "https://..."
+}
+Change to:
+
+multipart/form-data
+file: binary image
+This way the GPT uploads the actual binary image file — no URL fetching required.
+
+This completely avoids:
+
+Expiring URLs
+
+Parsing failures
+
+Public access issues
+
+409 storage problems
+
+🚀 Alternative (Less Reliable)
+If you insist on image_url, your server must:
+
+Accept temporary signed URLs
+
+Follow redirects
+
+Allow short-lived URLs
+
+Not require strict hostname validation
+
+But this is fragile compared to multipart upload.
+
+🎯 Recommendation
+Switch MediaHost /api/v1/upload to:
+
+POST /api/v1/upload
+Content-Type: multipart/form-data
+file: <binary>
+Then update the OpenAPI schema accordingly.
+
+That will permanently solve the parsing issue.
+
+If you'd like, I can now update the GPT behavior to:
+
+Upload binary file instead of URL
+
+Remove dependency on external fetch
+
+Eliminate the URL parsing failure permanently
+
+Say the word and I’ll configure it properly.

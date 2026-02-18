@@ -44,6 +44,13 @@ const upload = multer({
   }
 });
 
+const apiUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+  },
+});
+
 function getFileType(mimeType: string): 'image' | 'video' {
   return mimeType.startsWith('image/') ? 'image' : 'video';
 }
@@ -1003,25 +1010,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   }
 
-  // External upload endpoint for ChatGPT Actions
-  app.post('/api/v1/upload', validateApiKey, async (req, res) => {
+  async function processAndStoreImage(imageBuffer: Buffer, detectedMimeType: string, finalFilename: string, description?: string) {
+    let metadata: any = {};
     try {
-      const { image_url, image_base64, filename, description } = req.body;
+      const meta = await sharp(imageBuffer, { failOnError: false, limitInputPixels: false }).metadata();
+      metadata = { width: meta.width, height: meta.height };
+    } catch (e) {}
 
-      if (!image_url && !image_base64) {
-        return res.status(400).json({ error: 'Provide either image_url or image_base64' });
+    const hash = createHash('md5').update(imageBuffer).digest('hex').substring(0, 16);
+    const ext = path.extname(finalFilename) || '.png';
+    const uniqueFilename = `${path.basename(finalFilename, ext)}_${hash}${ext}`;
+    const filePath = path.join(uploadsDir, uniqueFilename);
+
+    const base64Content = imageBuffer.toString('base64');
+    const newFile = await storage.createMediaFile({
+      filename: uniqueFilename,
+      originalFilename: finalFilename,
+      mimeType: detectedMimeType,
+      size: imageBuffer.length,
+      filePath,
+      embeddableUrl: generateEmbeddableUrl(uniqueFilename),
+      fileType: 'image',
+      width: metadata.width || null,
+      height: metadata.height || null,
+      duration: null,
+      thumbnailPath: null,
+      fileContent: base64Content,
+    });
+
+    const productionDomain = 'mediahost.app';
+    return {
+      success: true,
+      file: {
+        id: newFile.id,
+        filename: uniqueFilename,
+        url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
+        embeddable_url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
+        width: metadata.width || null,
+        height: metadata.height || null,
+        size: imageBuffer.length,
+        description: description || null,
       }
+    };
+  }
+
+  // Multipart file upload endpoint for ChatGPT Actions (preferred)
+  app.post('/api/v1/upload', validateApiKey, apiUpload.single('file'), async (req, res) => {
+    try {
+      console.log(`[API Upload] Content-Type: ${req.headers['content-type']}`);
+      console.log(`[API Upload] Has file: ${!!req.file}, Body keys: ${Object.keys(req.body || {}).join(', ')}`);
 
       let imageBuffer: Buffer;
       let detectedMimeType = 'image/png';
-      const finalFilename = filename || `chatgpt_${Date.now()}.png`;
+      let finalFilename = `chatgpt_${Date.now()}.png`;
+      let description: string | undefined;
 
-      if (image_url) {
+      if (req.file) {
+        console.log(`[API Upload] Multipart file received: ${req.file.originalname}, size: ${req.file.size}, mimetype: ${req.file.mimetype}`);
+        imageBuffer = req.file.buffer;
+        detectedMimeType = req.file.mimetype || 'image/png';
+        finalFilename = req.body?.filename || req.file.originalname || finalFilename;
+        description = req.body?.description;
+      } else if (req.body?.image_url) {
+        const image_url = req.body.image_url;
         console.log(`[API Upload] Downloading image from URL: ${image_url.substring(0, 100)}...`);
+
+        if (!image_url.startsWith('http://') && !image_url.startsWith('https://')) {
+          console.error(`[API Upload] Invalid URL format: ${image_url.substring(0, 50)}`);
+          return res.status(400).json({ 
+            error: 'Invalid image URL. Must be a public https:// URL. If DALL-E gave you a file reference instead of a URL, please use multipart file upload instead.',
+            hint: 'Try uploading the file directly using multipart/form-data with a "file" field.'
+          });
+        }
+
         const response = await fetch(image_url, {
-          headers: {
-            'User-Agent': 'MediaHost/1.0',
-          },
+          headers: { 'User-Agent': 'MediaHost/1.0' },
           redirect: 'follow',
         });
         if (!response.ok) {
@@ -1029,64 +1092,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: `Failed to download image from URL: ${response.status} ${response.statusText}` });
         }
         const contentType = response.headers.get('content-type') || '';
-        const contentLength = response.headers.get('content-length') || 'unknown';
-        console.log(`[API Upload] Response: status=${response.status}, content-type=${contentType}, content-length=${contentLength}`);
+        console.log(`[API Upload] Response: status=${response.status}, content-type=${contentType}`);
         const arrayBuffer = await response.arrayBuffer();
         imageBuffer = Buffer.from(arrayBuffer);
         console.log(`[API Upload] Downloaded ${imageBuffer.length} bytes`);
         if (imageBuffer.length < 100) {
-          console.error(`[API Upload] Downloaded file is suspiciously small (${imageBuffer.length} bytes). URL may be expired or invalid.`);
-          return res.status(400).json({ error: `Downloaded file is too small (${imageBuffer.length} bytes). The image URL may be expired or invalid. Please try again with a fresh image URL.` });
+          return res.status(400).json({ error: `Downloaded file is too small (${imageBuffer.length} bytes). The image URL may be expired. Try uploading the file directly instead.` });
         }
         detectedMimeType = contentType.split(';')[0] || 'image/png';
-      } else {
-        const base64Data = image_base64!.replace(/^data:image\/\w+;base64,/, '');
+        finalFilename = req.body?.filename || finalFilename;
+        description = req.body?.description;
+      } else if (req.body?.image_base64) {
+        console.log(`[API Upload] Base64 image received`);
+        const base64Data = req.body.image_base64.replace(/^data:image\/\w+;base64,/, '');
         imageBuffer = Buffer.from(base64Data, 'base64');
+        finalFilename = req.body?.filename || finalFilename;
+        description = req.body?.description;
+      } else {
+        return res.status(400).json({ 
+          error: 'No image provided. Send either: a "file" field (multipart), "image_url" (JSON), or "image_base64" (JSON).',
+          supported_methods: [
+            'multipart/form-data with "file" field (recommended)',
+            'JSON with "image_url" field',
+            'JSON with "image_base64" field'
+          ]
+        });
       }
 
-      let metadata: any = {};
-      try {
-        const meta = await sharp(imageBuffer, { failOnError: false }).metadata();
-        metadata = { width: meta.width, height: meta.height };
-      } catch (e) {}
-
-      const hash = createHash('md5').update(imageBuffer).digest('hex').substring(0, 16);
-      const ext = path.extname(finalFilename) || '.png';
-      const uniqueFilename = `${path.basename(finalFilename, ext)}_${hash}${ext}`;
-      const filePath = path.join(uploadsDir, uniqueFilename);
-
-      const base64Content = imageBuffer.toString('base64');
-      const newFile = await storage.createMediaFile({
-        filename: uniqueFilename,
-        originalFilename: finalFilename,
-        mimeType: detectedMimeType,
-        size: imageBuffer.length,
-        filePath,
-        embeddableUrl: generateEmbeddableUrl(uniqueFilename),
-        fileType: 'image',
-        width: metadata.width || null,
-        height: metadata.height || null,
-        duration: null,
-        thumbnailPath: null,
-        fileContent: base64Content,
-      });
-
-      const productionDomain = 'mediahost.app';
-      res.json({
-        success: true,
-        file: {
-          id: newFile.id,
-          filename: uniqueFilename,
-          url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
-          embeddable_url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
-          width: metadata.width || null,
-          height: metadata.height || null,
-          size: imageBuffer.length,
-          description: description || null,
-        }
-      });
+      const result = await processAndStoreImage(imageBuffer, detectedMimeType, finalFilename, description);
+      console.log(`[API Upload] Success: ${result.file.filename}, ${result.file.width}x${result.file.height}, ${result.file.size} bytes`);
+      res.json(result);
     } catch (error) {
-      console.error('External upload error:', error);
+      console.error('[API Upload] Error:', error);
       res.status(500).json({ error: 'Failed to upload image', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
@@ -1113,8 +1150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       openapi: "3.1.0",
       info: {
         title: "MediaHost Pro API",
-        description: "Upload images to MediaHost Pro and get permanent hosted URLs. Use this to store and host images.",
-        version: "1.0.0"
+        description: "Upload images to MediaHost Pro and get permanent hosted URLs. Supports direct file upload (recommended) and URL-based upload.",
+        version: "1.1.0"
       },
       servers: [
         { url: "https://mediahost.app" }
@@ -1123,30 +1160,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "/api/v1/upload": {
           post: {
             operationId: "uploadImage",
-            summary: "Upload an image to MediaHost Pro",
-            description: "Upload an image via URL or base64 data. Returns a permanent hosted URL for the image.",
+            summary: "Upload an image file to get a permanent URL",
+            description: "Upload an image directly as a file (preferred) or via a public URL. Returns a permanent hosted URL. For DALL-E images, always upload the file directly rather than passing the URL.",
             requestBody: {
               required: true,
               content: {
+                "multipart/form-data": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      file: {
+                        type: "string",
+                        format: "binary",
+                        description: "The image file to upload (preferred method)"
+                      },
+                      filename: {
+                        type: "string",
+                        description: "Custom filename for the image"
+                      },
+                      description: {
+                        type: "string",
+                        description: "Description of the image"
+                      }
+                    },
+                    required: ["file"]
+                  }
+                },
                 "application/json": {
                   schema: {
                     type: "object",
                     properties: {
                       image_url: {
                         type: "string",
-                        description: "URL of the image to download and host. Use this when you have a temporary image URL (like from DALL-E)."
+                        description: "Public HTTPS URL of the image to download and host"
                       },
                       image_base64: {
                         type: "string",
-                        description: "Base64-encoded image data. Use this when you have raw image data."
+                        description: "Base64-encoded image data"
                       },
                       filename: {
                         type: "string",
-                        description: "Optional custom filename for the image (e.g. 'my-photo.png')"
+                        description: "Custom filename for the image"
                       },
                       description: {
                         type: "string",
-                        description: "Optional description of the image for reference"
+                        description: "Description of the image"
                       }
                     }
                   }

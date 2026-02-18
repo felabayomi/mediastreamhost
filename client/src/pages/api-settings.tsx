@@ -10,8 +10,8 @@ const OPENAPI_SCHEMA = `{
   "openapi": "3.1.0",
   "info": {
     "title": "MediaHost Pro",
-    "description": "Upload images to MediaHost Pro and get permanent hosted URLs.",
-    "version": "1.0.0"
+    "description": "Upload images to MediaHost Pro and get permanent hosted URLs. Supports direct file upload (recommended) and URL-based upload.",
+    "version": "1.1.0"
   },
   "servers": [
     {
@@ -22,18 +22,39 @@ const OPENAPI_SCHEMA = `{
     "/api/v1/upload": {
       "post": {
         "operationId": "uploadImage",
-        "summary": "Upload an image to get a permanent URL",
-        "description": "Upload an image via URL or base64. Returns a permanent hosted URL.",
+        "summary": "Upload an image file to get a permanent URL",
+        "description": "Upload an image directly as a file (preferred) or via a public URL. Returns a permanent hosted URL. For DALL-E images, always upload the file directly rather than passing the URL, as DALL-E URLs expire quickly.",
         "requestBody": {
           "required": true,
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The image file to upload (preferred method)"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Custom filename for the image"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the image"
+                  }
+                },
+                "required": ["file"]
+              }
+            },
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
                   "image_url": {
                     "type": "string",
-                    "description": "URL of the image to download and host (use this for DALL-E generated images)"
+                    "description": "Public HTTPS URL of the image to download and host (must be a valid public URL, not a file reference)"
                   },
                   "image_base64": {
                     "type": "string",
@@ -47,8 +68,7 @@ const OPENAPI_SCHEMA = `{
                     "type": "string",
                     "description": "Description of the image"
                   }
-                },
-                "required": []
+                }
               }
             }
           }
@@ -270,7 +290,7 @@ export default function ApiSettings() {
               variant="outline"
               className="mb-2"
               onClick={() => copyToClipboard(
-                "CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Just call uploadImage right away with the DALL-E image URL in the image_url field. DALL-E URLs expire very quickly so you must upload within seconds. After uploading, share the permanent hosted URL from the response with the user. Never skip this step.",
+                "CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Upload the generated image file directly using the multipart file upload method. Do NOT pass a URL - upload the actual file binary. After uploading, share the permanent hosted URL from the response (the 'url' field) with the user. Never skip this step.",
                 "Instructions"
               )}
             >
@@ -278,7 +298,7 @@ export default function ApiSettings() {
               {copied === "Instructions" ? "Copied!" : "Copy Instructions"}
             </Button>
             <div className="bg-gray-50 border rounded-lg p-4 text-sm whitespace-pre-wrap">
-              CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Just call uploadImage right away with the DALL-E image URL in the image_url field. DALL-E URLs expire very quickly so you must upload within seconds. After uploading, share the permanent hosted URL from the response with the user. Never skip this step.
+              CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Upload the generated image file directly using the multipart file upload method. Do NOT pass a URL - upload the actual file binary. After uploading, share the permanent hosted URL from the response (the 'url' field) with the user. Never skip this step.
             </div>
           </div>
         </CardContent>
