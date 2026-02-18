@@ -103,6 +103,7 @@ The application is configured for deployment on Replit with the following setup:
 
 ## Changelog
 
+- February 18, 2026. Added server-side image generation endpoint (`/api/v1/generate`) that accepts text prompts, calls OpenAI gpt-image-1 API, stores images, and returns permanent URLs. Updated OpenAPI schema to v2.0.0 with generate as primary endpoint for ChatGPT Actions.
 - February 18, 2026. Added ChatGPT Actions integration: external upload API (`/api/v1/upload`), API key management (stored in `app_settings` DB table), OpenAPI schema at `/api/openapi.json`, and ChatGPT API settings page
 - February 18, 2026. Updated iPhone sizes to App Store dimensions (6.5" and 6.7") and added iPad Pro 12.9"/13" sizes
 - January 23, 2026. Added PWA capability with home screen icons, service worker for offline support, and mobile-responsive sidebar with hamburger menu

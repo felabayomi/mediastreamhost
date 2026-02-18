@@ -1140,6 +1140,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/v1/generate', validateApiKey, async (req, res) => {
+    try {
+      const { prompt, size, quality, style } = req.body;
+
+      if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+        return res.status(400).json({ error: 'A text prompt is required to generate an image.' });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'OpenAI API key not configured on the server.' });
+      }
+
+      console.log(`[API Generate] Prompt: "${prompt.substring(0, 80)}...", size: ${size || '1024x1024'}, quality: ${quality || 'auto'}`);
+
+      const validSizes = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+      const chosenSize = validSizes.includes(size) ? size : 'auto';
+      const chosenQuality = ['low', 'medium', 'high', 'auto'].includes(quality) ? quality : 'auto';
+
+      const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-image-1',
+          prompt: prompt.trim(),
+          n: 1,
+          size: chosenSize,
+          quality: chosenQuality,
+        }),
+      });
+
+      if (!openaiRes.ok) {
+        const errBody = await openaiRes.text();
+        console.error(`[API Generate] OpenAI error: ${openaiRes.status} ${errBody}`);
+        return res.status(502).json({ error: `Image generation failed: ${openaiRes.status}`, details: errBody });
+      }
+
+      const openaiData = await openaiRes.json() as any;
+      const imageB64 = openaiData.data?.[0]?.b64_json;
+
+      if (!imageB64) {
+        console.error('[API Generate] No b64_json in response');
+        return res.status(502).json({ error: 'OpenAI did not return image data.' });
+      }
+
+      const imageBuffer = Buffer.from(imageB64, 'base64');
+      const finalFilename = `generated_${Date.now()}.png`;
+      console.log(`[API Generate] Image received: ${imageBuffer.length} bytes`);
+
+      const result = await processAndStoreImage(imageBuffer, 'image/png', finalFilename, prompt.substring(0, 200));
+      console.log(`[API Generate] Stored: ${result.file.url}`);
+
+      res.json({
+        success: true,
+        file: result.file,
+        prompt_used: prompt,
+      });
+    } catch (error) {
+      console.error('[API Generate] Error:', error);
+      res.status(500).json({ error: 'Failed to generate image', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Privacy policy for ChatGPT Actions
   app.get('/privacy', (req, res) => {
     res.send(`<!DOCTYPE html><html><head><title>MediaHost Pro - Privacy Policy</title></head><body style="max-width:800px;margin:40px auto;padding:0 20px;font-family:system-ui">
@@ -1162,18 +1227,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       openapi: "3.1.0",
       info: {
         title: "MediaHost Pro API",
-        description: "Upload images to MediaHost Pro and get permanent hosted URLs. Supports direct file upload (recommended) and URL-based upload.",
-        version: "1.1.0"
+        description: "Generate AI images from text prompts or upload existing images to get permanent hosted URLs.",
+        version: "2.0.0"
       },
       servers: [
         { url: "https://mediahost.app" }
       ],
       paths: {
+        "/api/v1/generate": {
+          post: {
+            operationId: "generateImage",
+            summary: "Generate an image from a text prompt and get a permanent hosted URL",
+            description: "Send a text prompt and MediaHost will generate the image using AI, store it permanently, and return a hosted URL. This is the recommended way to create and host AI-generated images. No file upload needed — just send a prompt.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      prompt: {
+                        type: "string",
+                        description: "Text description of the image to generate"
+                      },
+                      size: {
+                        type: "string",
+                        enum: ["1024x1024", "1536x1024", "1024x1536", "auto"],
+                        description: "Image size. Default is auto."
+                      },
+                      quality: {
+                        type: "string",
+                        enum: ["low", "medium", "high", "auto"],
+                        description: "Image quality. Default is auto."
+                      }
+                    },
+                    required: ["prompt"]
+                  }
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Image generated and hosted successfully",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        success: { type: "boolean" },
+                        file: {
+                          type: "object",
+                          properties: {
+                            id: { type: "integer" },
+                            filename: { type: "string" },
+                            url: { type: "string", description: "Permanent URL to access the image" },
+                            embeddable_url: { type: "string" },
+                            width: { type: "integer" },
+                            height: { type: "integer" },
+                            size: { type: "integer" }
+                          }
+                        },
+                        prompt_used: { type: "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "401": { description: "Invalid or missing API key" },
+              "502": { description: "Image generation failed" }
+            },
+            security: [{ bearerAuth: [] }]
+          }
+        },
         "/api/v1/upload": {
           post: {
             operationId: "uploadImage",
-            summary: "Upload an image file to get a permanent URL",
-            description: "Upload an image directly as a file (preferred) or via a public URL. Returns a permanent hosted URL. For DALL-E images, always upload the file directly rather than passing the URL.",
+            summary: "Upload an existing image file to get a permanent URL",
+            description: "Upload an existing image file or URL. For AI image generation, use the /api/v1/generate endpoint instead.",
             requestBody: {
               required: true,
               content: {
@@ -1184,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       file: {
                         type: "string",
                         format: "binary",
-                        description: "The image file to upload (preferred method)"
+                        description: "The image file to upload"
                       },
                       filename: {
                         type: "string",
@@ -1196,29 +1326,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                     },
                     required: ["file"]
-                  }
-                },
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      image_url: {
-                        type: "string",
-                        description: "Public HTTPS URL of the image to download and host"
-                      },
-                      image_base64: {
-                        type: "string",
-                        description: "Base64-encoded image data"
-                      },
-                      filename: {
-                        type: "string",
-                        description: "Custom filename for the image"
-                      },
-                      description: {
-                        type: "string",
-                        description: "Description of the image"
-                      }
-                    }
                   }
                 }
               }
@@ -1238,11 +1345,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             id: { type: "integer" },
                             filename: { type: "string" },
                             url: { type: "string", description: "Permanent URL to access the image" },
-                            embeddable_url: { type: "string", description: "URL for embedding in websites" },
+                            embeddable_url: { type: "string" },
                             width: { type: "integer" },
                             height: { type: "integer" },
-                            size: { type: "integer", description: "File size in bytes" },
-                            description: { type: "string" }
+                            size: { type: "integer" }
                           }
                         }
                       }
@@ -1250,9 +1356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                 }
               },
-              "401": {
-                description: "Invalid or missing API key"
-              }
+              "401": { description: "Invalid or missing API key" }
             },
             security: [{ bearerAuth: [] }]
           }

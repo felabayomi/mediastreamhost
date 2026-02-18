@@ -10,8 +10,8 @@ const OPENAPI_SCHEMA = `{
   "openapi": "3.1.0",
   "info": {
     "title": "MediaHost Pro",
-    "description": "Upload images to MediaHost Pro and get permanent hosted URLs. Supports direct file upload (recommended) and URL-based upload.",
-    "version": "1.1.0"
+    "description": "Generate AI images from text prompts and get permanent hosted URLs. No file upload needed — just send a prompt.",
+    "version": "2.0.0"
   },
   "servers": [
     {
@@ -19,63 +19,41 @@ const OPENAPI_SCHEMA = `{
     }
   ],
   "paths": {
-    "/api/v1/upload": {
+    "/api/v1/generate": {
       "post": {
-        "operationId": "uploadImage",
-        "summary": "Upload an image file to get a permanent URL",
-        "description": "Upload an image directly as a file (preferred) or via a public URL. Returns a permanent hosted URL. For DALL-E images, always upload the file directly rather than passing the URL, as DALL-E URLs expire quickly.",
+        "operationId": "generateImage",
+        "summary": "Generate an image from a text prompt and get a permanent hosted URL",
+        "description": "Send a text prompt and MediaHost will generate the image using AI, store it permanently, and return a hosted URL. This is the recommended way to create and host AI-generated images.",
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "The image file to upload (preferred method)"
-                  },
-                  "filename": {
-                    "type": "string",
-                    "description": "Custom filename for the image"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Description of the image"
-                  }
-                },
-                "required": ["file"]
-              }
-            },
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "image_url": {
+                  "prompt": {
                     "type": "string",
-                    "description": "Public HTTPS URL of the image to download and host (must be a valid public URL, not a file reference)"
+                    "description": "Text description of the image to generate"
                   },
-                  "image_base64": {
+                  "size": {
                     "type": "string",
-                    "description": "Base64-encoded image data"
+                    "enum": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+                    "description": "Image size. Default is auto."
                   },
-                  "filename": {
+                  "quality": {
                     "type": "string",
-                    "description": "Custom filename for the image"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Description of the image"
+                    "enum": ["low", "medium", "high", "auto"],
+                    "description": "Image quality. Default is auto."
                   }
-                }
+                },
+                "required": ["prompt"]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Image uploaded successfully",
+            "description": "Image generated and hosted successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -93,7 +71,8 @@ const OPENAPI_SCHEMA = `{
                         "height": { "type": "integer" },
                         "size": { "type": "integer" }
                       }
-                    }
+                    },
+                    "prompt_used": { "type": "string" }
                   }
                 }
               }
@@ -101,6 +80,9 @@ const OPENAPI_SCHEMA = `{
           },
           "401": {
             "description": "Invalid or missing API key"
+          },
+          "502": {
+            "description": "Image generation failed"
           }
         }
       }
@@ -284,13 +266,13 @@ export default function ApiSettings() {
           <CardTitle>Step 5: Add Instructions to Your GPT</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-gray-600">Add this to your GPT's Instructions so it knows to upload images:</p>
+          <p className="text-sm text-gray-600">Add this to your GPT's Instructions so it knows to generate and host images:</p>
           <div className="relative">
             <Button
               variant="outline"
               className="mb-2"
               onClick={() => copyToClipboard(
-                "CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Upload the generated image file directly using the multipart file upload method. Do NOT pass a URL - upload the actual file binary. After uploading, share the permanent hosted URL from the response (the 'url' field) with the user. Never skip this step.",
+                "CRITICAL RULE: When the user asks you to create, generate, or make an image, you MUST use the generateImage action. Do NOT use DALL-E directly. Instead, call generateImage with the prompt text. MediaHost will generate the image server-side and return a permanent hosted URL. After calling generateImage, share the permanent URL from the response (the file.url field) with the user. Always use generateImage — never try to generate images yourself and upload them.",
                 "Instructions"
               )}
             >
@@ -298,7 +280,7 @@ export default function ApiSettings() {
               {copied === "Instructions" ? "Copied!" : "Copy Instructions"}
             </Button>
             <div className="bg-gray-50 border rounded-lg p-4 text-sm whitespace-pre-wrap">
-              CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Upload the generated image file directly using the multipart file upload method. Do NOT pass a URL - upload the actual file binary. After uploading, share the permanent hosted URL from the response (the 'url' field) with the user. Never skip this step.
+              CRITICAL RULE: When the user asks you to create, generate, or make an image, you MUST use the generateImage action. Do NOT use DALL-E directly. Instead, call generateImage with the prompt text. MediaHost will generate the image server-side and return a permanent hosted URL. After calling generateImage, share the permanent URL from the response (the file.url field) with the user. Always use generateImage — never try to generate images yourself and upload them.
             </div>
           </div>
         </CardContent>
