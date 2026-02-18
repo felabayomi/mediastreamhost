@@ -15,7 +15,7 @@ const OPENAPI_SCHEMA = `{
   },
   "servers": [
     {
-      "url": "https://mediahost.app"
+      "url": "https://mediahost.app/"
     }
   ],
   "paths": {
