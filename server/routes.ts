@@ -1162,6 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       },
       components: {
+        schemas: {},
         securitySchemes: {
           bearerAuth: {
             type: "http",

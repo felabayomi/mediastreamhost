@@ -87,6 +87,7 @@ const OPENAPI_SCHEMA = `{
     }
   },
   "components": {
+    "schemas": {},
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
