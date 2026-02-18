@@ -1054,8 +1054,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   }
 
+  // Handle GET requests to upload endpoint (ChatGPT sometimes probes with GET first)
+  app.get('/api/v1/upload', (req, res) => {
+    res.json({
+      status: "ready",
+      message: "MediaHost Pro Upload API is active. Use POST with multipart/form-data to upload images.",
+      method: "POST",
+      content_type: "multipart/form-data",
+      required_fields: { file: "binary image file" },
+      authentication: "Bearer token required in Authorization header"
+    });
+  });
+
   // Multipart file upload endpoint for ChatGPT Actions (preferred)
-  app.post('/api/v1/upload', validateApiKey, apiUpload.single('file'), async (req, res) => {
+  app.post('/api/v1/upload', apiUpload.single('file'), validateApiKey, async (req, res) => {
     try {
       console.log(`[API Upload] Content-Type: ${req.headers['content-type']}`);
       console.log(`[API Upload] Has file: ${!!req.file}, Body keys: ${Object.keys(req.body || {}).join(', ')}`);
