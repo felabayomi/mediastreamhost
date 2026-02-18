@@ -982,12 +982,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   async function validateApiKey(req: any, res: any, next: any) {
-    const authHeader = req.headers['authorization'];
-    const apiKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const authHeader = req.headers['authorization'] || '';
+    console.log(`[API Auth] Authorization header present: ${!!authHeader}, length: ${authHeader.length}`);
+    console.log(`[API Auth] Headers: ${JSON.stringify(Object.keys(req.headers))}`);
+    let apiKey: string | null = null;
+    if (authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.slice(7).trim();
+    } else if (authHeader.startsWith('bearer ')) {
+      apiKey = authHeader.slice(7).trim();
+    } else if (authHeader && !authHeader.includes(' ')) {
+      apiKey = authHeader.trim();
+    }
     const storedKey = await storage.getSetting(API_KEY_SETTING);
+    console.log(`[API Auth] Received key starts with: ${apiKey?.substring(0, 6) || 'null'}, stored key starts with: ${storedKey?.substring(0, 6) || 'null'}`);
     if (!storedKey || !apiKey || apiKey !== storedKey) {
+      console.error(`[API Auth] Authentication failed. Key match: ${apiKey === storedKey}`);
       return res.status(401).json({ error: 'Invalid or missing API key. Use Bearer token authentication.' });
     }
+    console.log(`[API Auth] Authentication successful`);
     next();
   }
 
@@ -1005,13 +1017,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalFilename = filename || `chatgpt_${Date.now()}.png`;
 
       if (image_url) {
-        const response = await fetch(image_url);
+        console.log(`[API Upload] Downloading image from URL: ${image_url.substring(0, 100)}...`);
+        const response = await fetch(image_url, {
+          headers: {
+            'User-Agent': 'MediaHost/1.0',
+          },
+          redirect: 'follow',
+        });
         if (!response.ok) {
-          return res.status(400).json({ error: `Failed to download image from URL: ${response.statusText}` });
+          console.error(`[API Upload] Failed to download: ${response.status} ${response.statusText}`);
+          return res.status(400).json({ error: `Failed to download image from URL: ${response.status} ${response.statusText}` });
         }
+        const contentType = response.headers.get('content-type') || '';
+        const contentLength = response.headers.get('content-length') || 'unknown';
+        console.log(`[API Upload] Response: status=${response.status}, content-type=${contentType}, content-length=${contentLength}`);
         const arrayBuffer = await response.arrayBuffer();
         imageBuffer = Buffer.from(arrayBuffer);
-        detectedMimeType = response.headers.get('content-type') || 'image/png';
+        console.log(`[API Upload] Downloaded ${imageBuffer.length} bytes`);
+        if (imageBuffer.length < 100) {
+          console.error(`[API Upload] Downloaded file is suspiciously small (${imageBuffer.length} bytes). URL may be expired or invalid.`);
+          return res.status(400).json({ error: `Downloaded file is too small (${imageBuffer.length} bytes). The image URL may be expired or invalid. Please try again with a fresh image URL.` });
+        }
+        detectedMimeType = contentType.split(';')[0] || 'image/png';
       } else {
         const base64Data = image_base64!.replace(/^data:image\/\w+;base64,/, '');
         imageBuffer = Buffer.from(base64Data, 'base64');

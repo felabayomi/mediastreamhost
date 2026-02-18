@@ -270,7 +270,7 @@ export default function ApiSettings() {
               variant="outline"
               className="mb-2"
               onClick={() => copyToClipboard(
-                "IMPORTANT: Every time you generate an image using DALL-E, you MUST immediately use the uploadImage action to upload it. Pass the DALL-E temporary image URL in the image_url field. Then show the user the permanent URL from the response (the url field). Always do this automatically without asking.",
+                "CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Just call uploadImage right away with the DALL-E image URL in the image_url field. DALL-E URLs expire very quickly so you must upload within seconds. After uploading, share the permanent hosted URL from the response with the user. Never skip this step.",
                 "Instructions"
               )}
             >
@@ -278,7 +278,7 @@ export default function ApiSettings() {
               {copied === "Instructions" ? "Copied!" : "Copy Instructions"}
             </Button>
             <div className="bg-gray-50 border rounded-lg p-4 text-sm whitespace-pre-wrap">
-              IMPORTANT: Every time you generate an image using DALL-E, you MUST immediately use the uploadImage action to upload it. Pass the DALL-E temporary image URL in the image_url field. Then show the user the permanent URL from the response (the url field). Always do this automatically without asking.
+              CRITICAL RULE: Every single time you generate an image with DALL-E, you MUST IMMEDIATELY call the uploadImage action BEFORE doing anything else. Do not write any text first. Do not ask the user. Just call uploadImage right away with the DALL-E image URL in the image_url field. DALL-E URLs expire very quickly so you must upload within seconds. After uploading, share the permanent hosted URL from the response with the user. Never skip this step.
             </div>
           </div>
         </CardContent>
