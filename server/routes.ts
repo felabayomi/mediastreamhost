@@ -1064,6 +1064,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Privacy policy for ChatGPT Actions
+  app.get('/privacy', (req, res) => {
+    res.send(`<!DOCTYPE html><html><head><title>MediaHost Pro - Privacy Policy</title></head><body style="max-width:800px;margin:40px auto;padding:0 20px;font-family:system-ui">
+      <h1>MediaHost Pro Privacy Policy</h1>
+      <p>Last updated: February 2026</p>
+      <h2>Data We Collect</h2>
+      <p>When you upload images via our API, we store the image file and associated metadata (filename, dimensions, file size). We do not collect personal information beyond what is necessary to provide the service.</p>
+      <h2>How We Use Data</h2>
+      <p>Uploaded images are stored to provide permanent hosting URLs. We do not sell, share, or use your images for any purpose other than hosting and serving them back to you.</p>
+      <h2>Data Retention</h2>
+      <p>Images remain hosted until you delete them from your MediaHost Pro account.</p>
+      <h2>Contact</h2>
+      <p>For questions about this policy, contact us through the MediaHost Pro platform.</p>
+    </body></html>`);
+  });
+
   // OpenAPI spec for ChatGPT Actions
   app.get('/api/openapi.json', (req, res) => {
     res.json({
