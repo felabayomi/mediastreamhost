@@ -1,4 +1,4 @@
-import { mediaFiles, conversions, users, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
+import { mediaFiles, conversions, users, appSettings, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, inArray, isNotNull } from "drizzle-orm";
 import fs from "fs";
@@ -33,6 +33,10 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserLastLogin(id: number): Promise<void>;
+
+  // Settings
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -384,6 +388,28 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ lastLogin: new Date() })
       .where(eq(users.id, id));
+  }
+
+  async getSetting(key: string): Promise<string | null> {
+    const [row] = await db
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.key, key));
+    return row?.value || null;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    const existing = await this.getSetting(key);
+    if (existing !== null) {
+      await db
+        .update(appSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(appSettings.key, key));
+    } else {
+      await db
+        .insert(appSettings)
+        .values({ key, value });
+    }
   }
 }
 

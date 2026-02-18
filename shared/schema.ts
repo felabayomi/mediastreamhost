@@ -43,6 +43,13 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
 });
 
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertMediaFileSchema = createInsertSchema(mediaFiles).omit({
   id: true,
   uploadedAt: true,

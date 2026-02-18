@@ -11,6 +11,7 @@ import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
 import { backupService } from "./backup";
 import sharp from "sharp";
+import { randomBytes } from "crypto";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -939,6 +940,221 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Resize error:', error);
       res.status(500).json({ error: 'Failed to resize image', details: error instanceof Error ? error.message : 'Unknown error' });
     }
+  });
+
+  // --- ChatGPT External API ---
+
+  const API_KEY_SETTING = 'mediahost_api_key';
+
+  app.post('/api/generate-api-key', async (req, res) => {
+    try {
+      const { accessCode } = req.body;
+      if (!accessCode) {
+        return res.status(401).json({ error: 'Access code required' });
+      }
+      const result = await storage.verifyAccessCode(accessCode);
+      if (!result.isValid || !result.user || result.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      const newKey = `mh_${randomBytes(24).toString('hex')}`;
+      await storage.setSetting(API_KEY_SETTING, newKey);
+      res.json({ apiKey: newKey });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to generate API key' });
+    }
+  });
+
+  app.get('/api/api-key', async (req, res) => {
+    try {
+      const accessCode = req.headers['x-access-code'] as string;
+      if (!accessCode) {
+        return res.status(401).json({ error: 'Access code required' });
+      }
+      const result = await storage.verifyAccessCode(accessCode);
+      if (!result.isValid || !result.user || result.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      const key = await storage.getSetting(API_KEY_SETTING);
+      res.json({ apiKey: key, hasKey: !!key });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get API key' });
+    }
+  });
+
+  async function validateApiKey(req: any, res: any, next: any) {
+    const authHeader = req.headers['authorization'];
+    const apiKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const storedKey = await storage.getSetting(API_KEY_SETTING);
+    if (!storedKey || !apiKey || apiKey !== storedKey) {
+      return res.status(401).json({ error: 'Invalid or missing API key. Use Bearer token authentication.' });
+    }
+    next();
+  }
+
+  // External upload endpoint for ChatGPT Actions
+  app.post('/api/v1/upload', validateApiKey, async (req, res) => {
+    try {
+      const { image_url, image_base64, filename, description } = req.body;
+
+      if (!image_url && !image_base64) {
+        return res.status(400).json({ error: 'Provide either image_url or image_base64' });
+      }
+
+      let imageBuffer: Buffer;
+      let detectedMimeType = 'image/png';
+      const finalFilename = filename || `chatgpt_${Date.now()}.png`;
+
+      if (image_url) {
+        const response = await fetch(image_url);
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to download image from URL: ${response.statusText}` });
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        imageBuffer = Buffer.from(arrayBuffer);
+        detectedMimeType = response.headers.get('content-type') || 'image/png';
+      } else {
+        const base64Data = image_base64!.replace(/^data:image\/\w+;base64,/, '');
+        imageBuffer = Buffer.from(base64Data, 'base64');
+      }
+
+      let metadata: any = {};
+      try {
+        const meta = await sharp(imageBuffer, { failOnError: false }).metadata();
+        metadata = { width: meta.width, height: meta.height };
+      } catch (e) {}
+
+      const hash = createHash('md5').update(imageBuffer).digest('hex').substring(0, 16);
+      const ext = path.extname(finalFilename) || '.png';
+      const uniqueFilename = `${path.basename(finalFilename, ext)}_${hash}${ext}`;
+      const filePath = path.join(uploadsDir, uniqueFilename);
+
+      const base64Content = imageBuffer.toString('base64');
+      const newFile = await storage.createMediaFile({
+        filename: uniqueFilename,
+        originalFilename: finalFilename,
+        mimeType: detectedMimeType,
+        size: imageBuffer.length,
+        filePath,
+        embeddableUrl: generateEmbeddableUrl(uniqueFilename),
+        fileType: 'image',
+        width: metadata.width || null,
+        height: metadata.height || null,
+        duration: null,
+        thumbnailPath: null,
+        fileContent: base64Content,
+      });
+
+      const productionDomain = 'mediahost.app';
+      res.json({
+        success: true,
+        file: {
+          id: newFile.id,
+          filename: uniqueFilename,
+          url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
+          embeddable_url: `https://${productionDomain}/api/media/serve/${uniqueFilename}`,
+          width: metadata.width || null,
+          height: metadata.height || null,
+          size: imageBuffer.length,
+          description: description || null,
+        }
+      });
+    } catch (error) {
+      console.error('External upload error:', error);
+      res.status(500).json({ error: 'Failed to upload image', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // OpenAPI spec for ChatGPT Actions
+  app.get('/api/openapi.json', (req, res) => {
+    res.json({
+      openapi: "3.1.0",
+      info: {
+        title: "MediaHost Pro API",
+        description: "Upload images to MediaHost Pro and get permanent hosted URLs. Use this to store and host images.",
+        version: "1.0.0"
+      },
+      servers: [
+        { url: "https://mediahost.app" }
+      ],
+      paths: {
+        "/api/v1/upload": {
+          post: {
+            operationId: "uploadImage",
+            summary: "Upload an image to MediaHost Pro",
+            description: "Upload an image via URL or base64 data. Returns a permanent hosted URL for the image.",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      image_url: {
+                        type: "string",
+                        description: "URL of the image to download and host. Use this when you have a temporary image URL (like from DALL-E)."
+                      },
+                      image_base64: {
+                        type: "string",
+                        description: "Base64-encoded image data. Use this when you have raw image data."
+                      },
+                      filename: {
+                        type: "string",
+                        description: "Optional custom filename for the image (e.g. 'my-photo.png')"
+                      },
+                      description: {
+                        type: "string",
+                        description: "Optional description of the image for reference"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            responses: {
+              "200": {
+                description: "Image uploaded successfully",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        success: { type: "boolean" },
+                        file: {
+                          type: "object",
+                          properties: {
+                            id: { type: "integer" },
+                            filename: { type: "string" },
+                            url: { type: "string", description: "Permanent URL to access the image" },
+                            embeddable_url: { type: "string", description: "URL for embedding in websites" },
+                            width: { type: "integer" },
+                            height: { type: "integer" },
+                            size: { type: "integer", description: "File size in bytes" },
+                            description: { type: "string" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "401": {
+                description: "Invalid or missing API key"
+              }
+            },
+            security: [{ bearerAuth: [] }]
+          }
+        }
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            description: "API key from MediaHost Pro. Get it from the API Settings page."
+          }
+        }
+      }
+    });
   });
 
   const httpServer = createServer(app);

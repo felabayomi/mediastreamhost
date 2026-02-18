@@ -9,6 +9,7 @@ import PasteConverter from "@/pages/paste-converter";
 import MediaLibrary from "@/pages/media-library";
 import ImageResizer from "@/pages/image-resizer";
 import AccessPortal from "@/pages/access-portal";
+import ApiSettings from "@/pages/api-settings";
 import NotFound from "@/pages/not-found";
 import Sidebar from "@/components/sidebar";
 
@@ -31,6 +32,7 @@ function AppContent() {
             <Route path="/paste" component={PasteConverter} />
             <Route path="/media" component={MediaLibrary} />
             <Route path="/resize" component={ImageResizer} />
+            <Route path="/api-settings" component={ApiSettings} />
             <Route component={NotFound} />
           </Switch>
         </div>

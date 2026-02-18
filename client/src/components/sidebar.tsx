@@ -12,7 +12,8 @@ import {
   SettingsIcon,
   Smartphone,
   Menu,
-  X
+  X,
+  Plug
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Image Resizer", href: "/resize", icon: Smartphone },
   { name: "Conversions", href: "/conversions", icon: ServerCog },
   { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
+  { name: "ChatGPT API", href: "/api-settings", icon: Plug },
 ];
 
 export default function Sidebar() {
