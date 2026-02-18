@@ -12,7 +12,7 @@ export default function ApiSettings() {
   const [copied, setCopied] = useState("");
   const { toast } = useToast();
 
-  const accessCode = sessionStorage.getItem("accessCode") || "";
+  const accessCode = localStorage.getItem("accessCode") || "";
 
   useEffect(() => {
     fetchApiKey();
