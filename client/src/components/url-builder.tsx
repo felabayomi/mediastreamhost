@@ -44,6 +44,20 @@ const presetSizes = [
   { name: 'Card', w: 600, h: 400 },
   { name: 'Thumbnail', w: 150, h: 150 },
   { name: 'Social', w: 1080, h: 1080 },
+  { name: 'HD', w: 1920, h: 1080 },
+  { name: 'Facebook', w: 1200, h: 630 },
+  { name: 'Twitter', w: 1200, h: 675 },
+  { name: 'Instagram', w: 1080, h: 1350 },
+];
+
+const maxSizeOptions = [
+  { value: '', label: 'No limit' },
+  { value: '100', label: '100 KB' },
+  { value: '250', label: '250 KB' },
+  { value: '500', label: '500 KB' },
+  { value: '1024', label: '1 MB' },
+  { value: '2048', label: '2 MB' },
+  { value: '5120', label: '5 MB' },
 ];
 
 export default function UrlBuilder({ file }: UrlBuilderProps) {
@@ -52,6 +66,7 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
   const [fit, setFit] = useState('crop');
   const [crop, setCrop] = useState('center');
   const [quality, setQuality] = useState('80');
+  const [maxSize, setMaxSize] = useState('');
   const { toast } = useToast();
 
   const buildUrl = () => {
@@ -61,6 +76,7 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
     if (fit) params.append('fit', fit);
     if (crop && fit === 'crop') params.append('crop', crop);
     if (quality && file.fileType === 'image') params.append('q', quality);
+    if (maxSize && maxSize !== 'none') params.append('maxsize', maxSize);
     
     return `${file.embeddableUrl}?${params.toString()}`;
   };
@@ -99,7 +115,6 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Preset Sizes */}
           <div>
             <Label className="text-sm font-medium mb-3 block">Quick Presets</Label>
             <div className="flex flex-wrap gap-2">
@@ -117,7 +132,6 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
             </div>
           </div>
 
-          {/* Size Controls */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="width" className="text-sm font-medium">Width (px)</Label>
@@ -145,7 +159,6 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
             </div>
           </div>
 
-          {/* Fit and Crop Options */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium">Resize Mode</Label>
@@ -181,25 +194,45 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
             )}
           </div>
 
-          {/* Quality (Images only) */}
           {file.fileType === 'image' && (
-            <div>
-              <Label htmlFor="quality" className="text-sm font-medium">Quality (1-100)</Label>
-              <Input
-                id="quality"
-                type="number"
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                placeholder="80"
-                min="1"
-                max="100"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="quality" className="text-sm font-medium">Quality (1-100)</Label>
+                <Input
+                  id="quality"
+                  type="number"
+                  value={quality}
+                  onChange={(e) => setQuality(e.target.value)}
+                  placeholder="80"
+                  min="1"
+                  max="100"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Max File Size</Label>
+                <Select value={maxSize} onValueChange={setMaxSize}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No limit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maxSizeOptions.map((option) => (
+                      <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {maxSize && maxSize !== 'none' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Quality will auto-adjust to stay under this size
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Preview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
@@ -229,13 +262,11 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
         </CardContent>
       </Card>
 
-      {/* Generated URLs */}
       <Card>
         <CardHeader>
           <CardTitle>Generated URLs & Code</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Direct URL */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <Label className="text-sm font-medium">Direct URL</Label>
@@ -253,7 +284,6 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
             </div>
           </div>
 
-          {/* HTML Embed */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <Label className="text-sm font-medium">HTML Embed</Label>
@@ -271,7 +301,6 @@ export default function UrlBuilder({ file }: UrlBuilderProps) {
             </div>
           </div>
 
-          {/* Markdown */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <Label className="text-sm font-medium">Markdown</Label>

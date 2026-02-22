@@ -86,109 +86,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files with optional transformations
   app.get('/api/media/serve/:filename', async (req, res) => {
     const { filename } = req.params;
-    const { w, h, fit, crop } = req.query;
+    const { w, h, fit, crop, q, maxsize } = req.query;
     
     try {
-      // Get file info from storage using efficient single-file lookup
       const file = await storage.getMediaFileByFilename(filename);
       
       if (!file) {
         return res.status(404).json({ message: 'File not found in database' });
       }
 
-      // Generate ETag and Last-Modified for caching
       const lastModified = file.uploadedAt.toUTCString();
-      let etag: string;
       let fileBuffer: Buffer | null = null;
       
-      // Check if we have file content in database (new system)
       if (file.fileContent) {
-        // Generate ETag from file content hash
-        etag = `"${createHash('md5').update(file.fileContent).digest('hex')}"`;
+        fileBuffer = Buffer.from(file.fileContent, 'base64');
+      } else if (fs.existsSync(file.filePath)) {
+        fileBuffer = fs.readFileSync(file.filePath);
+      }
+      
+      if (!fileBuffer) {
+        console.error(`File not found anywhere: ${filename}`);
+        return res.status(404).json({ message: 'File content not available' });
+      }
+
+      const hasTransformParams = w || h || fit || crop || q || maxsize;
+      const isImage = file.mimeType.startsWith('image/');
+      
+      if (hasTransformParams && isImage) {
+        const width = w ? parseInt(w as string) : undefined;
+        const height = h ? parseInt(h as string) : undefined;
+        const fitMode = (fit as string) || 'cover';
+        const cropPos = (crop as string) || 'center';
+        let quality = q ? parseInt(q as string) : 80;
+        const maxSizeBytes = maxsize ? parseInt(maxsize as string) * 1024 : undefined;
+
+        let resizeOptions: any = {};
+        if (width) resizeOptions.width = width;
+        if (height) resizeOptions.height = height;
+
+        const validPositions: Record<string, string> = {
+          center: 'center', top: 'top', bottom: 'bottom',
+          left: 'left', right: 'right', faces: 'attention',
+        };
+
+        switch (fitMode) {
+          case 'crop':
+          case 'cover':
+            resizeOptions.fit = 'cover' as const;
+            resizeOptions.position = validPositions[cropPos] || 'center';
+            break;
+          case 'contain':
+            resizeOptions.fit = 'contain' as const;
+            break;
+          case 'fill':
+            resizeOptions.fit = 'fill' as const;
+            break;
+          case 'scale':
+          default:
+            resizeOptions.fit = 'inside' as const;
+            break;
+        }
+
+        const outputFormat = file.mimeType === 'image/png' ? 'png' : 'jpeg';
         
-        // Check conditional headers for 304 response
+        let outputBuffer: Buffer;
+        
+        if (maxSizeBytes && maxSizeBytes > 0) {
+          let lo = 1, hi = quality, bestBuffer: Buffer | null = null;
+          while (lo <= hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            const pipeline = sharp(fileBuffer, { failOnError: false, limitInputPixels: false });
+            if (width || height) pipeline.resize(resizeOptions);
+            const candidate = outputFormat === 'png'
+              ? await pipeline.png({ quality: mid }).toBuffer()
+              : await pipeline.jpeg({ quality: mid }).toBuffer();
+            if (candidate.length <= maxSizeBytes) {
+              bestBuffer = candidate;
+              lo = mid + 1;
+            } else {
+              hi = mid - 1;
+            }
+          }
+          outputBuffer = bestBuffer || await sharp(fileBuffer, { failOnError: false, limitInputPixels: false })
+            .resize(resizeOptions)[outputFormat]({ quality: 1 }).toBuffer();
+        } else {
+          const pipeline = sharp(fileBuffer, { failOnError: false, limitInputPixels: false });
+          if (width || height) pipeline.resize(resizeOptions);
+          outputBuffer = outputFormat === 'png'
+            ? await pipeline.png({ quality }).toBuffer()
+            : await pipeline.jpeg({ quality }).toBuffer();
+        }
+
+        const transformKey = `${w || ''}_${h || ''}_${fit || ''}_${crop || ''}_${q || ''}_${maxsize || ''}`;
+        const etag = `"${createHash('md5').update(transformKey + file.fileContent?.substring(0, 100)).digest('hex')}"`;
+        
         const ifNoneMatch = req.headers['if-none-match'];
-        const ifModifiedSince = req.headers['if-modified-since'];
-        
-        if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= file.uploadedAt)) {
-          // Set caching headers for 304 response
-          res.set({
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'ETag': etag,
-            'Last-Modified': lastModified,
-            'Access-Control-Allow-Origin': '*',
-          });
+        if (ifNoneMatch === etag) {
+          res.set({ 'Cache-Control': 'public, max-age=86400', 'ETag': etag, 'Access-Control-Allow-Origin': '*' });
           return res.status(304).end();
         }
-        
-        // Decode base64 only if we need to send the file
-        fileBuffer = Buffer.from(file.fileContent, 'base64');
-        
-        // Set CORS headers for WordPress, Facebook, and external embedding
+
         res.set({
-          'Content-Type': file.mimeType,
-          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Type': outputFormat === 'png' ? 'image/png' : 'image/jpeg',
+          'Cache-Control': 'public, max-age=86400',
           'ETag': etag,
           'Last-Modified': lastModified,
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
           'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'SAMEORIGIN',
-          'Referrer-Policy': 'no-referrer-when-downgrade',
-          'Content-Length': fileBuffer.length.toString(),
-          // Facebook-specific headers
-          'X-Robots-Tag': 'noindex, nofollow',
-          'Access-Control-Allow-Credentials': 'false',
+          'Content-Length': outputBuffer.length.toString(),
         });
-        
-        return res.send(fileBuffer);
+        return res.send(outputBuffer);
       }
+
+      const etag = `"${createHash('md5').update(fileBuffer).digest('hex')}"`;
+      const ifNoneMatch = req.headers['if-none-match'];
+      const ifModifiedSince = req.headers['if-modified-since'];
       
-      // Fallback to physical file for older uploads
-      if (fs.existsSync(file.filePath)) {
-        const stats = fs.statSync(file.filePath);
-        const fileModified = stats.mtime.toUTCString();
-        etag = `"${stats.size}-${stats.mtime.getTime()}"`;
-        
-        // Check conditional headers for 304 response
-        const ifNoneMatch = req.headers['if-none-match'];
-        const ifModifiedSince = req.headers['if-modified-since'];
-        
-        if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= stats.mtime)) {
-          // Set caching headers for 304 response
-          res.set({
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'ETag': etag,
-            'Last-Modified': fileModified,
-            'Access-Control-Allow-Origin': '*',
-          });
-          return res.status(304).end();
-        }
-        
-        // Set CORS headers for WordPress, Facebook, and external embedding
+      if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= file.uploadedAt)) {
         res.set({
-          'Content-Type': file.mimeType,
           'Cache-Control': 'public, max-age=31536000, immutable',
           'ETag': etag,
-          'Last-Modified': fileModified,
+          'Last-Modified': lastModified,
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'SAMEORIGIN',
-          'Referrer-Policy': 'no-referrer-when-downgrade',
-          // Facebook-specific headers
-          'X-Robots-Tag': 'noindex, nofollow',
-          'Access-Control-Allow-Credentials': 'false',
         });
-        
-        return res.sendFile(path.resolve(file.filePath));
+        return res.status(304).end();
       }
+
+      res.set({
+        'Content-Type': file.mimeType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'ETag': etag,
+        'Last-Modified': lastModified,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Referrer-Policy': 'no-referrer-when-downgrade',
+        'Content-Length': fileBuffer.length.toString(),
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Access-Control-Allow-Credentials': 'false',
+      });
       
-      // Neither database content nor physical file exists
-      console.error(`File not found anywhere: ${filename}`);
-      return res.status(404).json({ message: 'File content not available' });
+      return res.send(fileBuffer);
       
     } catch (error) {
       console.error('File serving error:', error);
@@ -795,8 +836,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Image resize endpoint for device-specific dimensions
   app.post('/api/resize-image', async (req, res) => {
     try {
-      const { url, base64, width, height, mode = 'scale' } = req.body;
-      console.log(`Resize request: ${width}x${height}, mode: ${mode}, hasBase64: ${!!base64}, hasUrl: ${!!url}`);
+      const { url, base64, width, height, mode = 'scale', quality: reqQuality, maxFileSize } = req.body;
+      console.log(`Resize request: ${width}x${height}, mode: ${mode}, quality: ${reqQuality || 90}, maxSize: ${maxFileSize || 'none'}, hasBase64: ${!!base64}, hasUrl: ${!!url}`);
 
       if ((!url && !base64) || !width || !height) {
         return res.status(400).json({ error: 'Image (URL or base64) and dimensions are required' });
@@ -892,19 +933,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           resizeOptions = { width, withoutEnlargement: false };
       }
 
-      // Resize the image using sharp with lenient error handling
+      const outputQuality = reqQuality ? parseInt(reqQuality) : 90;
+      const maxSizeBytes = maxFileSize ? parseInt(maxFileSize) * 1024 : undefined;
+
       let pipeline = sharp(imageBuffer, { failOnError: false }).resize(resizeOptions);
       if (needsFlatten) {
         pipeline = pipeline.flatten({ background: bgColor });
       }
-      const resizedBuffer = await pipeline.png({ quality: 90 }).toBuffer();
 
-      // Generate a unique filename for the resized image
+      let resizedBuffer: Buffer;
+
+      if (maxSizeBytes && maxSizeBytes > 0) {
+        let lo = 1, hi = outputQuality, bestBuffer: Buffer | null = null;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const p = sharp(imageBuffer, { failOnError: false }).resize(resizeOptions);
+          if (needsFlatten) p.flatten({ background: bgColor });
+          const candidate = await p.png({ quality: mid }).toBuffer();
+          if (candidate.length <= maxSizeBytes) {
+            bestBuffer = candidate;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        resizedBuffer = bestBuffer || await sharp(imageBuffer, { failOnError: false })
+          .resize(resizeOptions).png({ quality: 1 }).toBuffer();
+      } else {
+        resizedBuffer = await pipeline.png({ quality: outputQuality }).toBuffer();
+      }
+
       const hash = createHash('md5').update(resizedBuffer).digest('hex').substring(0, 16);
       const filename = `resized_${width}x${height}_${hash}.png`;
       const filePath = path.join(uploadsDir, filename);
 
-      // Check if this file already exists
       const existingFile = await storage.getMediaFileByFilename(filename);
       if (existingFile) {
         const productionDomain = 'mediahost.app';
@@ -914,10 +976,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filename,
           width,
           height,
+          fileSize: resizedBuffer.length,
         });
       }
 
-      // Save the resized image to database
       const base64Content = resizedBuffer.toString('base64');
       const newFile = await storage.createMediaFile({
         filename,
@@ -941,6 +1003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filename,
         width,
         height,
+        fileSize: resizedBuffer.length,
       });
     } catch (error) {
       console.error('Image resize error:', error);
