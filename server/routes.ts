@@ -314,7 +314,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (fileType === 'image') {
           (async () => {
             try {
-              const description = await describeImage(base64Content, file.mimetype);
+              const buf = Buffer.from(base64Content, 'base64');
+              const description = await describeImage(buf, file.mimetype);
               if (description) {
                 await storage.updateAiDescription(mediaFile.id, description);
                 console.log(`AI described image ${mediaFile.filename}: ${description.slice(0, 80)}...`);
@@ -391,14 +392,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await Promise.all(batch.map(async (imgMeta) => {
           try {
             const buffer = await storage.getFileBuffer(imgMeta.filename);
-            if (!buffer) return;
-            const base64 = buffer.toString('base64');
-            const description = await describeImage(base64, imgMeta.mimeType);
+            if (!buffer) {
+              // File missing from DB — mark so it's skipped next time
+              await storage.updateAiDescription(imgMeta.id, "[file not found]");
+              return;
+            }
+            const description = await describeImage(buffer, imgMeta.mimeType);
             if (description) {
               await storage.updateAiDescription(imgMeta.id, description);
             }
-          } catch (err) {
-            console.warn(`[AI] failed for ${imgMeta.filename}:`, err);
+          } catch (err: any) {
+            // Mark permanently unanalyzable images so they stop looping
+            const isPermFail =
+              err?.message === "sharp_conversion_failed" ||
+              err?.code === "image_parse_error" ||
+              err?.status === 400;
+            if (isPermFail) {
+              await storage.updateAiDescription(imgMeta.id, "[unsupported image format]");
+              console.warn(`[AI] marked ${imgMeta.filename} as unsupported`);
+            } else {
+              console.warn(`[AI] failed for ${imgMeta.filename}:`, err?.message ?? err);
+            }
           }
         }));
       }

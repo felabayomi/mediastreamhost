@@ -1,9 +1,22 @@
 import OpenAI from "openai";
+import sharp from "sharp";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function describeImage(base64Content: string, mimeType: string): Promise<string> {
-  const dataUrl = `data:${mimeType};base64,${base64Content}`;
+export async function describeImage(buffer: Buffer, mimeType: string): Promise<string> {
+  // Convert to JPEG via Sharp first — this fixes CMYK, corrupt headers,
+  // unusual color profiles, and any other format OpenAI won't accept
+  let jpegBuffer: Buffer;
+  try {
+    jpegBuffer = await sharp(buffer, { failOnError: false, limitInputPixels: false })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+  } catch {
+    throw new Error("sharp_conversion_failed");
+  }
+
+  const base64 = jpegBuffer.toString("base64");
+  const dataUrl = `data:image/jpeg;base64,${base64}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
