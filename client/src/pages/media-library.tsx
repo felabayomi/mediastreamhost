@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/header";
 import FileGrid from "@/components/file-grid";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchIcon, RefreshCwIcon } from "lucide-react";
+import { SearchIcon, RefreshCwIcon, SparklesIcon, CheckCircleIcon, LoaderIcon } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [fileType, setFileType] = useState<string>("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Debounce search: only fire a query 400ms after user stops typing
   useEffect(() => {
@@ -27,20 +31,12 @@ export default function MediaLibrary() {
       if (fileType && fileType !== 'all') params.append('type', fileType);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
       try {
-        const response = await fetch(`/api/media?${params}`, {
-          signal: controller.signal
-        });
+        const response = await fetch(`/api/media?${params}`, { signal: controller.signal });
         clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          if (response.status === 408) {
-            throw new Error('Request timeout - please try refreshing');
-          }
-          throw new Error('Failed to fetch files');
-        }
+        if (!response.ok) throw new Error('Failed to fetch files');
         return response.json();
       } catch (error) {
         clearTimeout(timeoutId);
@@ -48,10 +44,43 @@ export default function MediaLibrary() {
       }
     },
     refetchOnWindowFocus: true,
-    staleTime: 60000, // 1 minute - longer cache to reduce database load
+    staleTime: 60000,
     retry: 2,
     retryDelay: 1000,
   });
+
+  const { data: aiStatus, refetch: refetchAiStatus } = useQuery({
+    queryKey: ["/api/media/ai-status"],
+    staleTime: 30000,
+  });
+
+  const analyzeAllMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/media/analyze-all"),
+    onSuccess: (data: any) => {
+      const total = data?.total ?? 0;
+      if (total === 0) {
+        toast({ title: "All images already analyzed", description: "Nothing new to process." });
+      } else {
+        toast({
+          title: "AI analysis started",
+          description: `Analyzing ${total} image${total !== 1 ? 's' : ''} in the background. Search will improve as it completes.`,
+        });
+      }
+      // Refresh status after a delay
+      setTimeout(() => {
+        refetchAiStatus();
+        queryClient.invalidateQueries({ queryKey: ["/api/media"] });
+      }, 5000);
+    },
+    onError: () => {
+      toast({ title: "Analysis failed", description: "Could not start AI analysis.", variant: "destructive" });
+    },
+  });
+
+  const analyzed = (aiStatus as any)?.analyzed ?? 0;
+  const total = (aiStatus as any)?.total ?? 0;
+  const pending = (aiStatus as any)?.pending ?? 0;
+  const allAnalyzed = total > 0 && pending === 0;
 
   return (
     <>
@@ -62,6 +91,40 @@ export default function MediaLibrary() {
       />
       
       <main className="flex-1 overflow-y-auto p-6">
+        {/* AI Search Banner */}
+        {total > 0 && (
+          <div className={`mb-4 rounded-lg border px-4 py-3 flex items-center justify-between gap-4 ${allAnalyzed ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div className="flex items-center gap-2 text-sm">
+              {allAnalyzed ? (
+                <CheckCircleIcon className="h-4 w-4 text-green-600 shrink-0" />
+              ) : (
+                <SparklesIcon className="h-4 w-4 text-blue-600 shrink-0" />
+              )}
+              <span className={allAnalyzed ? 'text-green-800' : 'text-blue-800'}>
+                <strong>AI visual search</strong>
+                {allAnalyzed
+                  ? ` — all ${total} images indexed. Search by what's in your images, logos, text, scenes, and more.`
+                  : ` — ${analyzed} of ${total} images indexed. Analyze remaining ${pending} to search by image content.`}
+              </span>
+            </div>
+            {!allAnalyzed && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => analyzeAllMutation.mutate()}
+                disabled={analyzeAllMutation.isPending}
+              >
+                {analyzeAllMutation.isPending ? (
+                  <><LoaderIcon className="h-3 w-3 mr-1 animate-spin" /> Analyzing…</>
+                ) : (
+                  <><SparklesIcon className="h-3 w-3 mr-1" /> Analyze All</>
+                )}
+              </Button>
+            )}
+          </div>
+        )}
+
         <Card className="border border-gray-200">
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-6">
@@ -70,10 +133,10 @@ export default function MediaLibrary() {
                 <div className="relative">
                   <Input
                     type="text"
-                    placeholder="Search files..."
+                    placeholder={analyzed > 0 ? "Search by name or image content…" : "Search files…"}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-64"
+                    className="pl-10 pr-4 py-2 w-72"
                   />
                   <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 </div>
@@ -111,17 +174,14 @@ export default function MediaLibrary() {
             ) : files?.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500">No files found</p>
-                {search || fileType ? (
+                {(search || fileType !== 'all') && (
                   <button
-                    onClick={() => {
-                      setSearch("");
-                      setFileType("");
-                    }}
+                    onClick={() => { setSearch(""); setFileType("all"); }}
                     className="text-blue-600 hover:text-blue-800 mt-2"
                   >
                     Clear filters
                   </button>
-                ) : null}
+                )}
               </div>
             ) : (
               <FileGrid files={files} />

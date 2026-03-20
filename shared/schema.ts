@@ -16,6 +16,7 @@ export const mediaFiles = pgTable("media_files", {
   thumbnailPath: text("thumbnail_path"),
   embeddableUrl: text("embeddable_url").notNull(),
   fileContent: text("file_content"), // base64 encoded file content for persistence
+  aiDescription: text("ai_description"), // AI-generated description for visual search
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
 });
 

@@ -13,6 +13,8 @@ export interface IStorage {
   createMediaFile(file: InsertMediaFile): Promise<MediaFile>;
   deleteMediaFile(id: number): Promise<void>;
   searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]>;
+  updateAiDescription(id: number, description: string): Promise<void>;
+  getUnanalyzedImageIds(): Promise<{ id: number; filename: string; mimeType: string }[]>;
   
   // Conversions
   getConversion(id: number): Promise<Conversion | undefined>;
@@ -77,6 +79,7 @@ export class DatabaseStorage implements IStorage {
         height: mediaFiles.height,
         duration: mediaFiles.duration,
         thumbnailPath: mediaFiles.thumbnailPath,
+        aiDescription: mediaFiles.aiDescription,
         uploadedAt: mediaFiles.uploadedAt,
       }).from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
       
@@ -117,6 +120,7 @@ export class DatabaseStorage implements IStorage {
         height: mediaFiles.height,
         duration: mediaFiles.duration,
         thumbnailPath: mediaFiles.thumbnailPath,
+        aiDescription: mediaFiles.aiDescription,
         uploadedAt: mediaFiles.uploadedAt,
       }).from(mediaFiles).where(eq(mediaFiles.filename, filename)).limit(1);
       return file ? { ...file, fileContent: null } : undefined;
@@ -203,6 +207,7 @@ export class DatabaseStorage implements IStorage {
         height: mediaFiles.height,
         duration: mediaFiles.duration,
         thumbnailPath: mediaFiles.thumbnailPath,
+        aiDescription: mediaFiles.aiDescription,
         uploadedAt: mediaFiles.uploadedAt,
       }).from(mediaFiles).orderBy(desc(mediaFiles.uploadedAt));
       
@@ -310,7 +315,8 @@ export class DatabaseStorage implements IStorage {
   async searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]> {
     let whereCondition = or(
       like(mediaFiles.originalFilename, `%${query}%`),
-      like(mediaFiles.filename, `%${query}%`)
+      like(mediaFiles.filename, `%${query}%`),
+      like(mediaFiles.aiDescription, `%${query}%`)
     );
 
     if (fileType) {
@@ -331,6 +337,7 @@ export class DatabaseStorage implements IStorage {
         height: mediaFiles.height,
         duration: mediaFiles.duration,
         thumbnailPath: mediaFiles.thumbnailPath,
+        aiDescription: mediaFiles.aiDescription,
         uploadedAt: mediaFiles.uploadedAt,
       })
       .from(mediaFiles)
@@ -338,6 +345,28 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(mediaFiles.uploadedAt));
 
     return rows.map(r => ({ ...r, fileContent: null }));
+  }
+
+  async updateAiDescription(id: number, description: string): Promise<void> {
+    await db
+      .update(mediaFiles)
+      .set({ aiDescription: description })
+      .where(eq(mediaFiles.id, id));
+    // Update in-memory cache entry too
+    if (this.mediaFilesCache) {
+      const entry = this.mediaFilesCache.find(f => f.id === id);
+      if (entry) entry.aiDescription = description;
+    }
+  }
+
+  async getUnanalyzedImageIds(): Promise<{ id: number; filename: string; mimeType: string }[]> {
+    return await db
+      .select({ id: mediaFiles.id, filename: mediaFiles.filename, mimeType: mediaFiles.mimeType })
+      .from(mediaFiles)
+      .where(and(
+        eq(mediaFiles.fileType, 'image'),
+        sql`${mediaFiles.aiDescription} IS NULL`
+      ));
   }
 
   async getConversion(id: number): Promise<Conversion | undefined> {

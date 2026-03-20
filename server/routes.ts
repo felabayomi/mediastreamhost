@@ -9,6 +9,7 @@ import { createHash } from "crypto";
 import { insertMediaFileSchema, insertConversionSchema } from "@shared/schema";
 import { z } from "zod";
 import { GPTImageUploader } from "./gpt-integration";
+import { describeImage } from "./ai-vision";
 import { backupService } from "./backup";
 import sharp from "sharp";
 import { randomBytes } from "crypto";
@@ -308,6 +309,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (cleanupError) {
           console.warn('Failed to cleanup temporary file:', file.path);
         }
+
+        // Auto-analyze image with AI (fire-and-forget, non-blocking)
+        if (fileType === 'image') {
+          (async () => {
+            try {
+              const description = await describeImage(base64Content, file.mimetype);
+              if (description) {
+                await storage.updateAiDescription(mediaFile.id, description);
+                console.log(`AI described image ${mediaFile.filename}: ${description.slice(0, 80)}...`);
+              }
+            } catch (err) {
+              console.warn(`AI analysis failed for ${mediaFile.filename}:`, err);
+            }
+          })();
+        }
       }
 
       res.json({ files: uploadedFiles });
@@ -341,6 +357,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: 'File deleted successfully' });
     } catch (error) {
       res.status(500).json({ message: 'Failed to delete file' });
+    }
+  });
+
+  // AI analysis status: how many images have descriptions vs not
+  app.get('/api/media/ai-status', async (req, res) => {
+    try {
+      const unanalyzed = await storage.getUnanalyzedImageIds();
+      const allFiles = await storage.getAllMediaFiles();
+      const totalImages = allFiles.filter(f => f.fileType === 'image').length;
+      res.json({ total: totalImages, analyzed: totalImages - unanalyzed.length, pending: unanalyzed.length });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get AI status' });
+    }
+  });
+
+  // Trigger batch AI analysis of all unanalyzed images
+  // Processes in background, streams progress via SSE
+  app.post('/api/media/analyze-all', async (req, res) => {
+    try {
+      const unanalyzed = await storage.getUnanalyzedImageIds();
+      if (unanalyzed.length === 0) {
+        return res.json({ message: 'All images already analyzed', analyzed: 0 });
+      }
+
+      // Respond immediately with count, then process in background
+      res.json({ message: 'Analysis started', total: unanalyzed.length });
+
+      // Process 3 at a time to avoid rate limits
+      const CONCURRENCY = 3;
+      for (let i = 0; i < unanalyzed.length; i += CONCURRENCY) {
+        const batch = unanalyzed.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async (imgMeta) => {
+          try {
+            const buffer = await storage.getFileBuffer(imgMeta.filename);
+            if (!buffer) return;
+            const base64 = buffer.toString('base64');
+            const description = await describeImage(base64, imgMeta.mimeType);
+            if (description) {
+              await storage.updateAiDescription(imgMeta.id, description);
+              console.log(`[AI] analyzed ${imgMeta.filename}: ${description.slice(0, 60)}...`);
+            }
+          } catch (err) {
+            console.warn(`[AI] failed for ${imgMeta.filename}:`, err);
+          }
+        }));
+        // Small pause between batches to respect rate limits
+        if (i + CONCURRENCY < unanalyzed.length) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+      console.log(`[AI] Batch analysis complete for ${unanalyzed.length} images`);
+    } catch (error) {
+      console.error('Batch AI analysis error:', error);
+      if (!res.headersSent) res.status(500).json({ message: 'Analysis failed' });
     }
   });
 
