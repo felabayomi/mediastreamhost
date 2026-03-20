@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/header";
 import FileGrid from "@/components/file-grid";
@@ -10,13 +10,20 @@ import { SearchIcon, RefreshCwIcon } from "lucide-react";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [fileType, setFileType] = useState<string>("all");
 
+  // Debounce search: only fire a query 400ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data: files, isLoading, refetch, error } = useQuery({
-    queryKey: ["/api/media", { search, type: fileType }],
+    queryKey: ["/api/media", { search: debouncedSearch, type: fileType }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      if (debouncedSearch) params.append('search', debouncedSearch);
       if (fileType && fileType !== 'all') params.append('type', fileType);
       
       const controller = new AbortController();

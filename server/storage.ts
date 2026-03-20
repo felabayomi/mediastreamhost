@@ -1,6 +1,6 @@
 import { mediaFiles, conversions, users, appSettings, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, inArray, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, like, inArray, isNotNull, sql, count, sum } from "drizzle-orm";
 import fs from "fs";
 
 export interface IStorage {
@@ -314,17 +314,30 @@ export class DatabaseStorage implements IStorage {
     );
 
     if (fileType) {
-      whereCondition = and(
-        whereCondition,
-        eq(mediaFiles.fileType, fileType)
-      );
+      whereCondition = and(whereCondition, eq(mediaFiles.fileType, fileType));
     }
 
-    return await db
-      .select()
+    const rows = await db
+      .select({
+        id: mediaFiles.id,
+        filename: mediaFiles.filename,
+        originalFilename: mediaFiles.originalFilename,
+        mimeType: mediaFiles.mimeType,
+        size: mediaFiles.size,
+        filePath: mediaFiles.filePath,
+        embeddableUrl: mediaFiles.embeddableUrl,
+        fileType: mediaFiles.fileType,
+        width: mediaFiles.width,
+        height: mediaFiles.height,
+        duration: mediaFiles.duration,
+        thumbnailPath: mediaFiles.thumbnailPath,
+        uploadedAt: mediaFiles.uploadedAt,
+      })
       .from(mediaFiles)
       .where(whereCondition)
       .orderBy(desc(mediaFiles.uploadedAt));
+
+    return rows.map(r => ({ ...r, fileContent: null }));
   }
 
   async getConversion(id: number): Promise<Conversion | undefined> {
@@ -379,23 +392,23 @@ export class DatabaseStorage implements IStorage {
     totalConversions: number;
     totalUrls: number;
   }> {
-    const [fileStats] = await db
-      .select({
-        count: mediaFiles.id,
-        totalSize: mediaFiles.size,
-      })
-      .from(mediaFiles);
+    const [[fileStats], [conversionStats]] = await Promise.all([
+      db.select({
+        totalFiles: count(),
+        totalSize: sum(mediaFiles.size),
+      }).from(mediaFiles),
+      db.select({ totalConversions: count() }).from(conversions),
+    ]);
 
-    const files = await db.select().from(mediaFiles);
-    const conversionCount = await db.select().from(conversions);
-    
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-    
+    const totalFiles = fileStats?.totalFiles ?? 0;
+    const totalSize = Number(fileStats?.totalSize ?? 0);
+    const totalConversions = conversionStats?.totalConversions ?? 0;
+
     return {
-      totalFiles: files.length,
+      totalFiles,
       totalSize,
-      totalConversions: conversionCount.length,
-      totalUrls: files.length, // Each file gets an embeddable URL
+      totalConversions,
+      totalUrls: totalFiles,
     };
   }
 
