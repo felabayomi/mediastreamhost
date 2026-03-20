@@ -384,8 +384,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Respond immediately with count, then process in background
       res.json({ message: 'Analysis started', total: unanalyzed.length });
 
-      // Process 3 at a time to avoid rate limits
-      const CONCURRENCY = 3;
+      // Process 15 at a time for speed (gpt-4o-mini has generous rate limits)
+      const CONCURRENCY = 15;
       for (let i = 0; i < unanalyzed.length; i += CONCURRENCY) {
         const batch = unanalyzed.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map(async (imgMeta) => {
@@ -396,16 +396,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const description = await describeImage(base64, imgMeta.mimeType);
             if (description) {
               await storage.updateAiDescription(imgMeta.id, description);
-              console.log(`[AI] analyzed ${imgMeta.filename}: ${description.slice(0, 60)}...`);
             }
           } catch (err) {
             console.warn(`[AI] failed for ${imgMeta.filename}:`, err);
           }
         }));
-        // Small pause between batches to respect rate limits
-        if (i + CONCURRENCY < unanalyzed.length) {
-          await new Promise(r => setTimeout(r, 500));
-        }
       }
       console.log(`[AI] Batch analysis complete for ${unanalyzed.length} images`);
     } catch (error) {

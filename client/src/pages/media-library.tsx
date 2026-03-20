@@ -54,6 +54,26 @@ export default function MediaLibrary() {
     staleTime: 30000,
   });
 
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Poll status every 3s while analysis is running
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    const interval = setInterval(() => {
+      refetchAiStatus();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isAnalyzing, refetchAiStatus]);
+
+  // Stop polling when all done
+  useEffect(() => {
+    if (isAnalyzing && pending === 0 && total > 0) {
+      setIsAnalyzing(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/media"] });
+      toast({ title: "AI analysis complete!", description: `All ${total} images are now searchable by content.` });
+    }
+  }, [pending, total, isAnalyzing]);
+
   const analyzeAllMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/media/analyze-all"),
     onSuccess: (data: any) => {
@@ -61,16 +81,9 @@ export default function MediaLibrary() {
       if (total === 0) {
         toast({ title: "All images already analyzed", description: "Nothing new to process." });
       } else {
-        toast({
-          title: "AI analysis started",
-          description: `Analyzing ${total} image${total !== 1 ? 's' : ''} in the background. Search will improve as it completes.`,
-        });
-      }
-      // Refresh status after a delay
-      setTimeout(() => {
+        setIsAnalyzing(true);
         refetchAiStatus();
-        queryClient.invalidateQueries({ queryKey: ["/api/media"] });
-      }, 5000);
+      }
     },
     onError: () => {
       toast({ title: "Analysis failed", description: "Could not start AI analysis.", variant: "destructive" });
@@ -94,18 +107,33 @@ export default function MediaLibrary() {
         {/* AI Search Banner */}
         {total > 0 && (
           <div className={`mb-4 rounded-lg border px-4 py-3 flex items-center justify-between gap-4 ${allAnalyzed ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
-            <div className="flex items-center gap-2 text-sm">
-              {allAnalyzed ? (
-                <CheckCircleIcon className="h-4 w-4 text-green-600 shrink-0" />
-              ) : (
-                <SparklesIcon className="h-4 w-4 text-blue-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                {allAnalyzed ? (
+                  <CheckCircleIcon className="h-4 w-4 text-green-600 shrink-0" />
+                ) : isAnalyzing ? (
+                  <LoaderIcon className="h-4 w-4 text-blue-600 shrink-0 animate-spin" />
+                ) : (
+                  <SparklesIcon className="h-4 w-4 text-blue-600 shrink-0" />
+                )}
+                <span className={allAnalyzed ? 'text-green-800' : 'text-blue-800'}>
+                  <strong>AI visual search</strong>
+                  {allAnalyzed
+                    ? ` — all ${total} images indexed. Search by what's in your images, logos, text, scenes, and more.`
+                    : isAnalyzing
+                      ? ` — analyzing… ${analyzed} of ${total} done (${pending} remaining)`
+                      : ` — ${analyzed} of ${total} images indexed. Analyze remaining ${pending} to search by image content.`}
+                </span>
+              </div>
+              {/* Progress bar shown while analyzing */}
+              {isAnalyzing && total > 0 && (
+                <div className="mt-2 h-1.5 bg-blue-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.round((analyzed / total) * 100)}%` }}
+                  />
+                </div>
               )}
-              <span className={allAnalyzed ? 'text-green-800' : 'text-blue-800'}>
-                <strong>AI visual search</strong>
-                {allAnalyzed
-                  ? ` — all ${total} images indexed. Search by what's in your images, logos, text, scenes, and more.`
-                  : ` — ${analyzed} of ${total} images indexed. Analyze remaining ${pending} to search by image content.`}
-              </span>
             </div>
             {!allAnalyzed && (
               <Button
@@ -113,10 +141,12 @@ export default function MediaLibrary() {
                 variant="outline"
                 className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
                 onClick={() => analyzeAllMutation.mutate()}
-                disabled={analyzeAllMutation.isPending}
+                disabled={analyzeAllMutation.isPending || isAnalyzing}
               >
-                {analyzeAllMutation.isPending ? (
-                  <><LoaderIcon className="h-3 w-3 mr-1 animate-spin" /> Analyzing…</>
+                {isAnalyzing ? (
+                  <><LoaderIcon className="h-3 w-3 mr-1 animate-spin" /> Running…</>
+                ) : analyzeAllMutation.isPending ? (
+                  <><LoaderIcon className="h-3 w-3 mr-1 animate-spin" /> Starting…</>
                 ) : (
                   <><SparklesIcon className="h-3 w-3 mr-1" /> Analyze All</>
                 )}
