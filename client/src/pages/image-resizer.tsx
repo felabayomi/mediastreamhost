@@ -291,14 +291,23 @@ export default function ImageResizer() {
     }
   };
 
-  const downloadImage = (result: ResizedImage) => {
-    const a = document.createElement('a');
-    a.href = result.localUrl;
-    a.download = `${result.size.replace(/[^a-zA-Z0-9]/g, '_')}_${result.width}x${result.height}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast({ title: "Downloaded", description: `${result.size} image saved` });
+  const downloadImage = async (result: ResizedImage) => {
+    try {
+      const response = await fetch(result.localUrl);
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${result.size.replace(/[^a-zA-Z0-9]/g, '_')}_${result.width}x${result.height}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      toast({ title: "Downloaded", description: `${result.size} image saved` });
+    } catch {
+      toast({ title: "Download Failed", description: "Unable to download image", variant: "destructive" });
+    }
   };
 
   const downloadAll = () => {
