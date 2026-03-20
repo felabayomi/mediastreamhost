@@ -1,6 +1,6 @@
 import { mediaFiles, conversions, users, appSettings, type MediaFile, type InsertMediaFile, type Conversion, type InsertConversion, type User, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, inArray, isNotNull, sql, count, sum } from "drizzle-orm";
+import { eq, desc, and, or, like, ilike, inArray, isNotNull, sql, count, sum } from "drizzle-orm";
 import fs from "fs";
 
 export interface IStorage {
@@ -314,9 +314,9 @@ export class DatabaseStorage implements IStorage {
 
   async searchMediaFiles(query: string, fileType?: string): Promise<MediaFile[]> {
     let whereCondition = or(
-      like(mediaFiles.originalFilename, `%${query}%`),
-      like(mediaFiles.filename, `%${query}%`),
-      like(mediaFiles.aiDescription, `%${query}%`)
+      ilike(mediaFiles.originalFilename, `%${query}%`),
+      ilike(mediaFiles.filename, `%${query}%`),
+      ilike(mediaFiles.aiDescription, `%${query}%`)
     );
 
     if (fileType) {
