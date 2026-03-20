@@ -7,6 +7,7 @@ export interface IStorage {
   // Media files
   getMediaFile(id: number): Promise<MediaFile | undefined>;
   getMediaFileByFilename(filename: string): Promise<MediaFile | undefined>;
+  getFileBuffer(filename: string): Promise<Buffer | null>;
   getAllMediaFiles(): Promise<MediaFile[]>;
   getAvailableMediaFiles(files: MediaFile[]): Promise<MediaFile[]>;
   createMediaFile(file: InsertMediaFile): Promise<MediaFile>;
@@ -44,6 +45,10 @@ export class DatabaseStorage implements IStorage {
   private cacheExpiry: number = 0;
   private readonly CACHE_DURATION = 60000; // 1 minute
   private isInitializing: boolean = false;
+
+  // In-memory buffer cache to avoid repeated DB reads for file content
+  private bufferCache: Map<string, Buffer> = new Map();
+  private readonly MAX_BUFFER_CACHE_ENTRIES = 250;
 
   constructor() {
     // Initialize cache immediately when the storage is created
@@ -90,17 +95,73 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMediaFileByFilename(filename: string): Promise<MediaFile | undefined> {
+    // Try metadata cache first to avoid a DB round-trip
+    if (this.mediaFilesCache) {
+      const cached = this.mediaFilesCache.find(f => f.filename === filename);
+      if (cached) return cached;
+    }
     try {
-      const [file] = await db
-        .select()
-        .from(mediaFiles)
-        .where(eq(mediaFiles.filename, filename))
-        .limit(1);
-      return file || undefined;
+      // Fetch metadata only (no fileContent) — buffer is fetched separately via getFileBuffer
+      const [file] = await db.select({
+        id: mediaFiles.id,
+        filename: mediaFiles.filename,
+        originalFilename: mediaFiles.originalFilename,
+        mimeType: mediaFiles.mimeType,
+        size: mediaFiles.size,
+        filePath: mediaFiles.filePath,
+        embeddableUrl: mediaFiles.embeddableUrl,
+        fileType: mediaFiles.fileType,
+        width: mediaFiles.width,
+        height: mediaFiles.height,
+        duration: mediaFiles.duration,
+        thumbnailPath: mediaFiles.thumbnailPath,
+        uploadedAt: mediaFiles.uploadedAt,
+      }).from(mediaFiles).where(eq(mediaFiles.filename, filename)).limit(1);
+      return file ? { ...file, fileContent: null } : undefined;
     } catch (error) {
       console.error('Database error fetching media file by filename:', error);
       return undefined;
     }
+  }
+
+  async getFileBuffer(filename: string): Promise<Buffer | null> {
+    // Return from buffer cache if available
+    if (this.bufferCache.has(filename)) {
+      return this.bufferCache.get(filename)!;
+    }
+    try {
+      const [row] = await db
+        .select({ fileContent: mediaFiles.fileContent, filePath: mediaFiles.filePath })
+        .from(mediaFiles)
+        .where(eq(mediaFiles.filename, filename))
+        .limit(1);
+
+      if (!row) return null;
+
+      let buffer: Buffer | null = null;
+      if (row.fileContent) {
+        buffer = Buffer.from(row.fileContent, 'base64');
+      } else if (row.filePath && fs.existsSync(row.filePath)) {
+        buffer = fs.readFileSync(row.filePath);
+      }
+
+      if (buffer) {
+        // Evict oldest entry if cache is full
+        if (this.bufferCache.size >= this.MAX_BUFFER_CACHE_ENTRIES) {
+          const firstKey = this.bufferCache.keys().next().value;
+          if (firstKey) this.bufferCache.delete(firstKey);
+        }
+        this.bufferCache.set(filename, buffer);
+      }
+      return buffer;
+    } catch (error) {
+      console.error('Error fetching file buffer:', error);
+      return null;
+    }
+  }
+
+  evictBufferCache(filename: string) {
+    this.bufferCache.delete(filename);
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
@@ -172,12 +233,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMediaFile(id: number): Promise<void> {
+    // Get filename before deleting so we can evict from buffer cache
+    const files = await this.getAllMediaFiles();
+    const fileToDelete = files.find(f => f.id === id);
     // Delete related conversions first
     await db.delete(conversions).where(eq(conversions.mediaFileId, id));
     // Then delete the media file
     await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
-    // Invalidate cache after deletion
+    // Invalidate metadata cache and evict from buffer cache
     this.invalidateCache();
+    if (fileToDelete) this.evictBufferCache(fileToDelete.filename);
   }
 
   async getAvailableMediaFiles(files: MediaFile[]): Promise<MediaFile[]> {

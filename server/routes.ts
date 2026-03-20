@@ -96,13 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const lastModified = file.uploadedAt.toUTCString();
-      let fileBuffer: Buffer | null = null;
-      
-      if (file.fileContent) {
-        fileBuffer = Buffer.from(file.fileContent, 'base64');
-      } else if (fs.existsSync(file.filePath)) {
-        fileBuffer = fs.readFileSync(file.filePath);
-      }
+      const fileBuffer = await storage.getFileBuffer(filename);
       
       if (!fileBuffer) {
         console.error(`File not found anywhere: ${filename}`);
