@@ -54,6 +54,11 @@ export default function MediaLibrary() {
     staleTime: 30000,
   });
 
+  const analyzed = (aiStatus as any)?.analyzed ?? 0;
+  const total = (aiStatus as any)?.total ?? 0;
+  const pending = (aiStatus as any)?.pending ?? 0;
+  const allAnalyzed = total > 0 && pending === 0;
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Poll status every 3s while analysis is running
@@ -77,8 +82,8 @@ export default function MediaLibrary() {
   const analyzeAllMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/media/analyze-all"),
     onSuccess: (data: any) => {
-      const total = data?.total ?? 0;
-      if (total === 0) {
+      const newTotal = data?.total ?? 0;
+      if (newTotal === 0) {
         toast({ title: "All images already analyzed", description: "Nothing new to process." });
       } else {
         setIsAnalyzing(true);
@@ -89,11 +94,6 @@ export default function MediaLibrary() {
       toast({ title: "Analysis failed", description: "Could not start AI analysis.", variant: "destructive" });
     },
   });
-
-  const analyzed = (aiStatus as any)?.analyzed ?? 0;
-  const total = (aiStatus as any)?.total ?? 0;
-  const pending = (aiStatus as any)?.pending ?? 0;
-  const allAnalyzed = total > 0 && pending === 0;
 
   return (
     <>
