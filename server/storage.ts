@@ -49,6 +49,8 @@ export class DatabaseStorage implements IStorage {
   // In-memory buffer cache to avoid repeated DB reads for file content
   private bufferCache: Map<string, Buffer> = new Map();
   private readonly MAX_BUFFER_CACHE_ENTRIES = 250;
+  // Deduplication: track in-flight DB requests so concurrent calls share one query
+  private inFlightBufferRequests: Map<string, Promise<Buffer | null>> = new Map();
 
   constructor() {
     // Initialize cache immediately when the storage is created
@@ -125,10 +127,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFileBuffer(filename: string): Promise<Buffer | null> {
-    // Return from buffer cache if available
+    // Return from buffer cache if available (fastest path)
     if (this.bufferCache.has(filename)) {
       return this.bufferCache.get(filename)!;
     }
+    // Deduplicate: if a DB fetch is already in progress for this file, reuse it
+    if (this.inFlightBufferRequests.has(filename)) {
+      return this.inFlightBufferRequests.get(filename)!;
+    }
+    const fetchPromise = this._fetchAndCacheBuffer(filename);
+    this.inFlightBufferRequests.set(filename, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      this.inFlightBufferRequests.delete(filename);
+    }
+  }
+
+  private async _fetchAndCacheBuffer(filename: string): Promise<Buffer | null> {
     try {
       const [row] = await db
         .select({ fileContent: mediaFiles.fileContent, filePath: mediaFiles.filePath })
@@ -162,6 +178,7 @@ export class DatabaseStorage implements IStorage {
 
   evictBufferCache(filename: string) {
     this.bufferCache.delete(filename);
+    this.inFlightBufferRequests.delete(filename);
   }
 
   async getAllMediaFiles(): Promise<MediaFile[]> {
