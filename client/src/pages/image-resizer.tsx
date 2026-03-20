@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Smartphone, Tablet, Download, Copy, Check, Loader2, Upload, ImageIcon, X, Monitor, Layout } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Smartphone, Tablet, Download, Copy, Check, Loader2, Upload, ImageIcon, X, Monitor, Layout, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/header";
 
@@ -66,7 +67,17 @@ const MAX_SIZE_OPTIONS = [
   { value: '5120', label: '5 MB' },
 ];
 
-interface ResizedImage {
+const MAX_IMAGES = 12;
+
+interface UploadedImage {
+  id: string;
+  name: string;
+  base64: string;
+}
+
+interface ResizedResult {
+  sourceId: string;
+  sourceName: string;
   size: string;
   width: number;
   height: number;
@@ -76,10 +87,12 @@ interface ResizedImage {
 }
 
 export default function ImageResizer() {
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [imageUrl, setImageUrl] = useState("");
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [results, setResults] = useState<ResizedImage[]>([]);
+  const [progressText, setProgressText] = useState("");
+  const [progressValue, setProgressValue] = useState(0);
+  const [results, setResults] = useState<ResizedResult[]>([]);
   const [copiedUrl, setCopiedUrl] = useState("");
   const [selectedSizes, setSelectedSizes] = useState<Set<string>>(new Set());
   const [resizeMode, setResizeMode] = useState("scale");
@@ -88,17 +101,15 @@ export default function ImageResizer() {
   const [customWidth, setCustomWidth] = useState("");
   const [customHeight, setCustomHeight] = useState("");
   const [activeTab, setActiveTab] = useState<"device" | "general" | "custom">("general");
+  const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
   const toggleSize = (sizeName: string) => {
     const newSelected = new Set(selectedSizes);
-    if (newSelected.has(sizeName)) {
-      newSelected.delete(sizeName);
-    } else {
-      newSelected.add(sizeName);
-    }
+    if (newSelected.has(sizeName)) newSelected.delete(sizeName);
+    else newSelected.add(sizeName);
     setSelectedSizes(newSelected);
   };
 
@@ -108,9 +119,7 @@ export default function ImageResizer() {
     setSelectedSizes(newSelected);
   };
 
-  const clearSelection = () => {
-    setSelectedSizes(new Set());
-  };
+  const clearSelection = () => setSelectedSizes(new Set());
 
   const addCustomSize = () => {
     const w = parseInt(customWidth);
@@ -120,51 +129,70 @@ export default function ImageResizer() {
       return;
     }
     const name = `Custom (${w}x${h})`;
-    const newSelected = new Set(selectedSizes);
-    newSelected.add(name);
-    setSelectedSizes(newSelected);
+    setSelectedSizes(prev => new Set([...prev, name]));
     toast({ title: "Size Added", description: `${w}x${h} added to selection` });
   };
 
-  const handleFileUpload = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast({ title: "Invalid File", description: "Please select an image file", variant: "destructive" });
-      return;
+  const processFiles = useCallback((files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    const remaining = MAX_IMAGES - uploadedImages.length;
+    const toProcess = imageFiles.slice(0, remaining);
+
+    if (imageFiles.length > remaining) {
+      toast({ title: "Limit Reached", description: `Only ${remaining} more image${remaining !== 1 ? 's' : ''} can be added (max ${MAX_IMAGES})`, variant: "destructive" });
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      setUploadedImage(base64);
-      setImageUrl("");
-      toast({ title: "Image Loaded", description: "Image ready for resizing" });
-    };
-    reader.readAsDataURL(file);
-  };
+
+    let loaded = 0;
+    const newImages: UploadedImage[] = [];
+
+    toProcess.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newImages.push({
+          id: `${Date.now()}_${Math.random()}`,
+          name: file.name,
+          base64: e.target?.result as string,
+        });
+        loaded++;
+        if (loaded === toProcess.length) {
+          setUploadedImages(prev => [...prev, ...newImages]);
+          setImageUrl("");
+          if (toProcess.length > 0) {
+            toast({ title: `${toProcess.length} Image${toProcess.length > 1 ? 's' : ''} Added`, description: `Ready to resize` });
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [uploadedImages.length, toast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
+    const files = Array.from(e.target.files || []);
+    processFiles(files);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handlePaste = (e: ClipboardEvent) => {
+  const handlePaste = useCallback((e: ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+    const files: File[] = [];
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.startsWith('image/')) {
         const file = items[i].getAsFile();
-        if (file) {
-          handleFileUpload(file);
-          e.preventDefault();
-          return;
-        }
+        if (file) files.push(file);
       }
     }
-  };
+    if (files.length > 0) {
+      processFiles(files);
+      e.preventDefault();
+    }
+  }, [processFiles]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
+    processFiles(Array.from(e.dataTransfer.files));
   };
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
@@ -172,22 +200,21 @@ export default function ImageResizer() {
   useEffect(() => {
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, []);
+  }, [handlePaste]);
 
-  const clearImage = () => {
-    setUploadedImage(null);
+  const removeImage = (id: string) => {
+    setUploadedImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  const clearAll = () => {
+    setUploadedImages([]);
     setImageUrl("");
     setResults([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const getAllSizes = () => {
-    const allNamed = [
-      ...DEVICE_SIZES.iphone,
-      ...DEVICE_SIZES.ipad,
-      ...GENERAL_SIZES.social,
-      ...GENERAL_SIZES.web,
-    ];
+    const allNamed = [...DEVICE_SIZES.iphone, ...DEVICE_SIZES.ipad, ...GENERAL_SIZES.social, ...GENERAL_SIZES.web];
     const sizes: { name: string; width: number; height: number }[] = [];
     for (const name of Array.from(selectedSizes)) {
       const found = allNamed.find(s => s.name === name);
@@ -195,33 +222,46 @@ export default function ImageResizer() {
         sizes.push(found);
       } else {
         const match = name.match(/Custom \((\d+)x(\d+)\)/);
-        if (match) {
-          sizes.push({ name, width: parseInt(match[1]), height: parseInt(match[2]) });
-        }
+        if (match) sizes.push({ name, width: parseInt(match[1]), height: parseInt(match[2]) });
       }
     }
     return sizes;
   };
 
   const handleResize = async () => {
-    const imageSource = uploadedImage || imageUrl.trim();
-    if (!imageSource) {
-      toast({ title: "No Image", description: "Please upload an image or enter a URL", variant: "destructive" });
+    const hasUploaded = uploadedImages.length > 0;
+    const hasUrl = imageUrl.trim();
+    if (!hasUploaded && !hasUrl) {
+      toast({ title: "No Image", description: "Upload images or enter a URL", variant: "destructive" });
       return;
     }
     if (selectedSizes.size === 0) {
-      toast({ title: "No Sizes Selected", description: "Please select at least one size", variant: "destructive" });
+      toast({ title: "No Sizes Selected", description: "Select at least one size", variant: "destructive" });
       return;
     }
 
+    const sizesToProcess = getAllSizes();
+    const sources = hasUploaded
+      ? uploadedImages
+      : [{ id: 'url', name: imageUrl, base64: imageUrl }];
+
+    const totalOps = sources.length * sizesToProcess.length;
+    let completed = 0;
+
     setIsProcessing(true);
     setResults([]);
+    setProgressValue(0);
 
-    try {
-      const sizesToProcess = getAllSizes();
-      const resizedImages: ResizedImage[] = [];
+    const allResults: ResizedResult[] = [];
 
-      for (const size of sizesToProcess) {
+    for (let si = 0; si < sources.length; si++) {
+      const source = sources[si];
+      const isUrl = source.id === 'url';
+
+      for (let pi = 0; pi < sizesToProcess.length; pi++) {
+        const size = sizesToProcess[pi];
+        setProgressText(`Image ${si + 1}/${sources.length} — ${size.name}`);
+
         try {
           const requestBody: any = {
             width: size.width,
@@ -230,11 +270,8 @@ export default function ImageResizer() {
             quality: parseInt(quality) || 90,
           };
           if (maxFileSize && maxFileSize !== 'none') requestBody.maxFileSize = parseInt(maxFileSize);
-          if (uploadedImage) {
-            requestBody.base64 = uploadedImage;
-          } else {
-            requestBody.url = imageUrl;
-          }
+          if (isUrl) requestBody.url = source.name;
+          else requestBody.base64 = source.base64;
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 120000);
@@ -249,11 +286,13 @@ export default function ImageResizer() {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.details || errorData.error || `Failed to resize for ${size.name}`);
+            throw new Error(errorData.details || errorData.error || `Failed`);
           }
 
           const data = await response.json();
-          resizedImages.push({
+          allResults.push({
+            sourceId: source.id,
+            sourceName: isUrl ? (source.name.split('/').pop() || source.name) : source.name,
             size: size.name,
             width: size.width,
             height: size.height,
@@ -262,21 +301,20 @@ export default function ImageResizer() {
             fileSize: data.fileSize,
           });
         } catch (error: any) {
-          const errorMessage = error.name === 'AbortError'
-            ? 'Request timed out - image may be too large'
-            : error.message || 'Could not resize for this dimension';
-          toast({ title: `Failed: ${size.name}`, description: errorMessage, variant: "destructive" });
+          const msg = error.name === 'AbortError' ? 'Timed out' : (error.message || 'Failed');
+          toast({ title: `Skipped: ${size.name}`, description: msg, variant: "destructive" });
         }
-      }
 
-      setResults(resizedImages);
-      if (resizedImages.length > 0) {
-        toast({ title: "Images Resized", description: `Successfully created ${resizedImages.length} resized images` });
+        completed++;
+        setProgressValue(Math.round((completed / totalOps) * 100));
       }
-    } catch (error) {
-      toast({ title: "Resize Failed", description: error instanceof Error ? error.message : "Failed to resize image", variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
+    }
+
+    setResults(allResults);
+    setIsProcessing(false);
+    setProgressText("");
+    if (allResults.length > 0) {
+      toast({ title: "Done!", description: `${allResults.length} image${allResults.length !== 1 ? 's' : ''} resized across ${sources.length} source${sources.length !== 1 ? 's' : ''}` });
     }
   };
 
@@ -291,7 +329,7 @@ export default function ImageResizer() {
     }
   };
 
-  const downloadImage = async (result: ResizedImage) => {
+  const downloadImage = async (result: ResizedResult) => {
     try {
       const response = await fetch(result.localUrl);
       if (!response.ok) throw new Error(`Server returned ${response.status}`);
@@ -299,12 +337,12 @@ export default function ImageResizer() {
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `${result.size.replace(/[^a-zA-Z0-9]/g, '_')}_${result.width}x${result.height}.png`;
+      a.download = `${result.sourceName.replace(/\.[^.]+$/, '')}_${result.size.replace(/[^a-zA-Z0-9]/g, '_')}_${result.width}x${result.height}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
-      toast({ title: "Downloaded", description: `${result.size} image saved` });
+      toast({ title: "Downloaded", description: `${result.size} saved` });
     } catch {
       toast({ title: "Download Failed", description: "Unable to download image", variant: "destructive" });
     }
@@ -316,13 +354,36 @@ export default function ImageResizer() {
     });
   };
 
+  const downloadSourceImages = (sourceId: string) => {
+    const sourceResults = results.filter(r => r.sourceId === sourceId);
+    sourceResults.forEach((result, i) => {
+      setTimeout(() => downloadImage(result), i * 300);
+    });
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const hasImage = uploadedImage || imageUrl.trim();
+  const toggleCollapse = (sourceId: string) => {
+    setCollapsedSources(prev => {
+      const next = new Set(prev);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
+  };
+
+  const hasImage = uploadedImages.length > 0 || imageUrl.trim();
+
+  const groupedResults = results.reduce<{ sourceId: string; sourceName: string; items: ResizedResult[] }[]>((acc, r) => {
+    const existing = acc.find(g => g.sourceId === r.sourceId);
+    if (existing) existing.items.push(r);
+    else acc.push({ sourceId: r.sourceId, sourceName: r.sourceName, items: [r] });
+    return acc;
+  }, []);
 
   const renderSizeGrid = (sizes: { name: string; width: number; height: number }[]) => (
     <div className="space-y-2">
@@ -351,30 +412,62 @@ export default function ImageResizer() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header
         title="Image Resizer"
-        subtitle="Resize images to any dimensions - device, social media, web, or custom sizes"
+        subtitle="Resize up to 12 images at once — device, social media, web, or custom sizes"
       />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-6xl mx-auto space-y-6">
+
+          {/* Upload Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Add Your Image
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  Images ({uploadedImages.length}/{MAX_IMAGES})
+                </CardTitle>
+                {(uploadedImages.length > 0 || imageUrl) && (
+                  <Button variant="ghost" size="sm" onClick={clearAll} className="text-gray-500">
+                    <X className="h-4 w-4 mr-1" /> Clear All
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {uploadedImage ? (
-                <div className="relative">
-                  <img src={uploadedImage} alt="Uploaded" className="max-h-64 mx-auto rounded-lg shadow-md" />
-                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clearImage}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="text-center mt-2">
-                    <Badge variant="secondary">Image Ready</Badge>
-                  </div>
+              {/* Uploaded thumbnails grid */}
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {uploadedImages.map((img) => (
+                    <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                      <img src={img.base64} alt={img.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          onClick={() => removeImage(img.id)}
+                          className="bg-red-500 rounded-full p-1 text-white"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
+                        <p className="text-white text-xs truncate">{img.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Add more button */}
+                  {uploadedImages.length < MAX_IMAGES && (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-5 w-5 text-gray-400" />
+                      <span className="text-xs text-gray-400 mt-1">Add more</span>
+                    </div>
+                  )}
                 </div>
-              ) : (
+              )}
+
+              {/* Drop zone (only when no images or under limit) */}
+              {uploadedImages.length === 0 && (
                 <div
                   ref={dropAreaRef}
                   onDrop={handleDrop}
@@ -384,57 +477,47 @@ export default function ImageResizer() {
                 >
                   <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-lg font-medium text-gray-700">
-                    Drop an image here, click to upload, or paste (Ctrl+V)
+                    Drop images here, click to upload, or paste (Ctrl+V)
                   </p>
-                  <p className="text-sm text-gray-500 mt-2">Supports JPG, PNG, GIF, WebP</p>
-                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  <p className="text-sm text-gray-500 mt-2">Up to {MAX_IMAGES} images — JPG, PNG, GIF, WebP</p>
                 </div>
               )}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">Or enter URL</span>
-                </div>
-              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
-              <Input
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                value={imageUrl}
-                onChange={(e) => { setImageUrl(e.target.value); if (e.target.value) setUploadedImage(null); }}
-                disabled={!!uploadedImage}
-                className="font-mono text-sm"
-              />
+              {/* URL input (only when no files uploaded) */}
+              {uploadedImages.length === 0 && (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-gray-500">Or enter URL</span>
+                    </div>
+                  </div>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
 
+          {/* Size tabs */}
           <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={activeTab === "general" ? "default" : "outline"}
-              onClick={() => setActiveTab("general")}
-              className="flex items-center gap-2"
-            >
-              <Monitor className="h-4 w-4" />
-              Social & Web
+            <Button variant={activeTab === "general" ? "default" : "outline"} onClick={() => setActiveTab("general")} className="flex items-center gap-2">
+              <Monitor className="h-4 w-4" /> Social & Web
             </Button>
-            <Button
-              variant={activeTab === "device" ? "default" : "outline"}
-              onClick={() => setActiveTab("device")}
-              className="flex items-center gap-2"
-            >
-              <Smartphone className="h-4 w-4" />
-              Device Sizes
+            <Button variant={activeTab === "device" ? "default" : "outline"} onClick={() => setActiveTab("device")} className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4" /> Device Sizes
             </Button>
-            <Button
-              variant={activeTab === "custom" ? "default" : "outline"}
-              onClick={() => setActiveTab("custom")}
-              className="flex items-center gap-2"
-            >
-              <Layout className="h-4 w-4" />
-              Custom Size
+            <Button variant={activeTab === "custom" ? "default" : "outline"} onClick={() => setActiveTab("custom")} className="flex items-center gap-2">
+              <Layout className="h-4 w-4" /> Custom Size
             </Button>
           </div>
 
@@ -443,18 +526,14 @@ export default function ImageResizer() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-base">Social Media</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => selectGroup(GENERAL_SIZES.social)}>
-                    Select All
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => selectGroup(GENERAL_SIZES.social)}>Select All</Button>
                 </CardHeader>
                 <CardContent>{renderSizeGrid(GENERAL_SIZES.social)}</CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-base">Web & General</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => selectGroup(GENERAL_SIZES.web)}>
-                    Select All
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => selectGroup(GENERAL_SIZES.web)}>Select All</Button>
                 </CardHeader>
                 <CardContent>{renderSizeGrid(GENERAL_SIZES.web)}</CardContent>
               </Card>
@@ -465,25 +544,15 @@ export default function ImageResizer() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Smartphone className="h-5 w-5" />
-                    iPhone Sizes
-                  </CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => selectGroup(DEVICE_SIZES.iphone)}>
-                    Select All
-                  </Button>
+                  <CardTitle className="flex items-center gap-2"><Smartphone className="h-5 w-5" /> iPhone Sizes</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => selectGroup(DEVICE_SIZES.iphone)}>Select All</Button>
                 </CardHeader>
                 <CardContent>{renderSizeGrid(DEVICE_SIZES.iphone)}</CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Tablet className="h-5 w-5" />
-                    iPad Sizes
-                  </CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => selectGroup(DEVICE_SIZES.ipad)}>
-                    Select All
-                  </Button>
+                  <CardTitle className="flex items-center gap-2"><Tablet className="h-5 w-5" /> iPad Sizes</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => selectGroup(DEVICE_SIZES.ipad)}>Select All</Button>
                 </CardHeader>
                 <CardContent>{renderSizeGrid(DEVICE_SIZES.ipad)}</CardContent>
               </Card>
@@ -500,26 +569,12 @@ export default function ImageResizer() {
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
                     <Label htmlFor="customWidth" className="text-sm font-medium">Width (px)</Label>
-                    <Input
-                      id="customWidth"
-                      type="number"
-                      value={customWidth}
-                      onChange={(e) => setCustomWidth(e.target.value)}
-                      placeholder="1920"
-                      min="1"
-                    />
+                    <Input id="customWidth" type="number" value={customWidth} onChange={(e) => setCustomWidth(e.target.value)} placeholder="1920" min="1" />
                   </div>
                   <span className="pb-2 text-gray-400 font-bold">×</span>
                   <div className="flex-1">
                     <Label htmlFor="customHeight" className="text-sm font-medium">Height (px)</Label>
-                    <Input
-                      id="customHeight"
-                      type="number"
-                      value={customHeight}
-                      onChange={(e) => setCustomHeight(e.target.value)}
-                      placeholder="1080"
-                      min="1"
-                    />
+                    <Input id="customHeight" type="number" value={customHeight} onChange={(e) => setCustomHeight(e.target.value)} placeholder="1080" min="1" />
                   </div>
                   <Button onClick={addCustomSize}>Add</Button>
                 </div>
@@ -533,9 +588,7 @@ export default function ImageResizer() {
                           <span className="font-medium text-sm">{name}</span>
                           <div className="flex items-center gap-2">
                             <Badge>{match[1]} x {match[2]}</Badge>
-                            <Button variant="ghost" size="sm" onClick={() => toggleSize(name)}>
-                              <X className="h-3 w-3" />
-                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => toggleSize(name)}><X className="h-3 w-3" /></Button>
                           </div>
                         </div>
                       ) : null;
@@ -546,11 +599,12 @@ export default function ImageResizer() {
             </Card>
           )}
 
+          {/* Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Resize Mode</Label>
@@ -572,15 +626,7 @@ export default function ImageResizer() {
                 </div>
                 <div>
                   <Label htmlFor="resizerQuality" className="text-sm font-medium">Quality (1-100)</Label>
-                  <Input
-                    id="resizerQuality"
-                    type="number"
-                    value={quality}
-                    onChange={(e) => setQuality(e.target.value)}
-                    placeholder="90"
-                    min="1"
-                    max="100"
-                  />
+                  <Input id="resizerQuality" type="number" value={quality} onChange={(e) => setQuality(e.target.value)} placeholder="90" min="1" max="100" />
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Max File Size</Label>
@@ -590,101 +636,121 @@ export default function ImageResizer() {
                     </SelectTrigger>
                     <SelectContent>
                       {MAX_SIZE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value || 'none'} value={option.value || 'none'}>
-                          {option.label}
-                        </SelectItem>
+                        <SelectItem key={option.value || 'none'} value={option.value || 'none'}>{option.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {maxFileSize && (
-                    <p className="text-xs text-gray-500 mt-1">Quality auto-adjusts to stay under this limit</p>
+                  {maxFileSize && maxFileSize !== 'none' && (
+                    <p className="text-xs text-gray-500 mt-1">Quality auto-adjusts to stay under limit</p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Selection summary */}
           {selectedSizes.size > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-sm font-medium text-blue-800">
                   {selectedSizes.size} size{selectedSizes.size !== 1 ? 's' : ''} selected
+                  {uploadedImages.length > 1 && ` × ${uploadedImages.length} images = ${selectedSizes.size * uploadedImages.length} total operations`}
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {Array.from(selectedSizes).slice(0, 5).map(name => (
                     <Badge key={name} variant="secondary" className="text-xs">{name}</Badge>
                   ))}
-                  {selectedSizes.size > 5 && (
-                    <Badge variant="secondary" className="text-xs">+{selectedSizes.size - 5} more</Badge>
-                  )}
+                  {selectedSizes.size > 5 && <Badge variant="secondary" className="text-xs">+{selectedSizes.size - 5} more</Badge>}
                 </div>
               </div>
             </div>
           )}
 
+          {/* Action buttons */}
           <div className="flex gap-4">
-            <Button
-              onClick={handleResize}
-              disabled={isProcessing || !hasImage || selectedSizes.size === 0}
-              className="flex-1"
-            >
+            <Button onClick={handleResize} disabled={isProcessing || !hasImage || selectedSizes.size === 0} className="flex-1">
               {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Resizing Images...
-                </>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resizing...</>
               ) : (
-                <>Resize to Selected Sizes ({selectedSizes.size})</>
+                <>Resize {uploadedImages.length > 1 ? `${uploadedImages.length} Images` : 'Image'} ({selectedSizes.size} size{selectedSizes.size !== 1 ? 's' : ''})</>
               )}
             </Button>
             {selectedSizes.size > 0 && (
-              <Button variant="outline" onClick={clearSelection}>
-                Clear Selection
-              </Button>
+              <Button variant="outline" onClick={clearSelection}>Clear Selection</Button>
             )}
           </div>
 
-          {results.length > 0 && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Resized Images</CardTitle>
+          {/* Progress bar */}
+          {isProcessing && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>{progressText}</span>
+                <span>{progressValue}%</span>
+              </div>
+              <Progress value={progressValue} className="h-2" />
+            </div>
+          )}
+
+          {/* Results grouped by source image */}
+          {groupedResults.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">
+                  Results — {results.length} image{results.length !== 1 ? 's' : ''} across {groupedResults.length} source{groupedResults.length !== 1 ? 's' : ''}
+                </h2>
                 <Button onClick={downloadAll} variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
+                  <Download className="h-4 w-4 mr-2" /> Download All
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {results.map((result, index) => (
-                    <div key={index} className="border rounded-lg overflow-hidden">
-                      <div className="aspect-video bg-gray-100 relative">
-                        <img src={result.localUrl} alt={result.size} className="w-full h-full object-contain" />
+              </div>
+
+              {groupedResults.map((group) => (
+                <Card key={group.sourceId}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 cursor-pointer flex-1" onClick={() => toggleCollapse(group.sourceId)}>
+                        {collapsedSources.has(group.sourceId) ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                        <CardTitle className="text-base truncate">{group.sourceName}</CardTitle>
+                        <Badge variant="secondary">{group.items.length} size{group.items.length !== 1 ? 's' : ''}</Badge>
                       </div>
-                      <div className="p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">{result.size}</span>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="secondary">{result.width} x {result.height}</Badge>
-                            {result.fileSize && (
-                              <Badge variant="outline" className="text-xs">{formatFileSize(result.fileSize)}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => copyToClipboard(result.url)}>
-                            {copiedUrl === result.url ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                            Copy URL
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => downloadImage(result)}>
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+                      <Button variant="outline" size="sm" onClick={() => downloadSourceImages(group.sourceId)}>
+                        <Download className="h-3 w-3 mr-1" /> All
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                  {!collapsedSources.has(group.sourceId) && (
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {group.items.map((result, index) => (
+                          <div key={index} className="border rounded-lg overflow-hidden">
+                            <div className="aspect-video bg-gray-100 relative">
+                              <img src={result.localUrl} alt={result.size} className="w-full h-full object-contain" />
+                            </div>
+                            <div className="p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm truncate">{result.size}</span>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Badge variant="secondary" className="text-xs">{result.width}×{result.height}</Badge>
+                                  {result.fileSize && <Badge variant="outline" className="text-xs">{formatFileSize(result.fileSize)}</Badge>}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => copyToClipboard(result.url)}>
+                                  {copiedUrl === result.url ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                                  Copy URL
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => downloadImage(result)}>
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       </div>
