@@ -58,7 +58,7 @@ function getFileType(mimeType: string): 'image' | 'video' {
 
 function generateEmbeddableUrl(filename: string): string {
   // Always use production domain for universal access across all platforms
-  const productionDomain = 'mediahost.app';
+  const productionDomain = 'imagediscoverer.xyz';
   return `https://${productionDomain}/api/media/serve/${filename}`;
 }
 
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use((req, res, next) => {
     const host = req.get('host') || '';
     if (host.includes('image.citydiscoverer.ai')) {
-      const newUrl = `https://mediahost.app${req.originalUrl}`;
+      const newUrl = `https://imagediscoverer.xyz${req.originalUrl}`;
       return res.redirect(301, newUrl);
     }
     next();
@@ -474,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'OpenAI API key not configured' });
       }
 
-      const baseUrl = 'https://mediahost.app';
+      const baseUrl = 'https://imagediscoverer.xyz';
       const uploader = new GPTImageUploader(process.env.OPENAI_API_KEY, baseUrl);
       
       // Map style to OpenAI parameters
@@ -926,7 +926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Image buffer size: ${imageBuffer.length} bytes`);
       } else {
         // Check if this is a URL from our own server - if so, load directly from database
-        const ourDomains = ['mediahost.app', 'localhost', '127.0.0.1'];
+        const ourDomains = ['imagediscoverer.xyz', 'mediahost.app', 'localhost', '127.0.0.1'];
         const urlObj = new URL(url);
         const isOurServer = ourDomains.some(d => urlObj.hostname.includes(d));
         
@@ -1042,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const existingFile = await storage.getMediaFileByFilename(filename);
       if (existingFile) {
-        const productionDomain = 'mediahost.app';
+        const productionDomain = 'imagediscoverer.xyz';
         return res.json({
           url: `https://${productionDomain}/api/media/serve/${filename}`,
           localUrl: `/api/media/serve/${filename}`,
@@ -1069,7 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileContent: base64Content,
       });
 
-      const productionDomain = 'mediahost.app';
+      const productionDomain = 'imagediscoverer.xyz';
       res.json({
         url: `https://${productionDomain}/api/media/serve/${filename}`,
         localUrl: `/api/media/serve/${filename}`,
@@ -1174,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fileContent: base64Content,
     });
 
-    const productionDomain = 'mediahost.app';
+    const productionDomain = 'imagediscoverer.xyz';
     return {
       success: true,
       file: {
@@ -1367,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         version: "2.0.0"
       },
       servers: [
-        { url: "https://mediahost.app" }
+        { url: "https://imagediscoverer.xyz" }
       ],
       paths: {
         "/api/v1/generate": {

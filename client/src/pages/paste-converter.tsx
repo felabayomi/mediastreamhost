@@ -137,7 +137,7 @@ export default function PasteConverter() {
       const file = data.files[0]; // Get the first uploaded file
       
       // Generate production domain URLs for Facebook compatibility
-      const productionDomain = 'mediahost.app';
+      const productionDomain = 'imagediscoverer.xyz';
       const productionUrl = `https://${productionDomain}/api/media/serve/${file.filename}`;
       
       const transformedResult = {
@@ -387,7 +387,7 @@ export default function PasteConverter() {
               <CardContent className="space-y-4">
                 <div className="space-y-4 p-4 bg-green-50 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-700">Production URLs (mediahost.app):</span>
+                    <span className="text-sm font-medium text-green-700">Production URLs (imagediscoverer.xyz):</span>
                     <Badge variant="secondary">Ready to Use</Badge>
                   </div>
                   

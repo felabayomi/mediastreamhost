@@ -15,7 +15,7 @@ const OPENAPI_SCHEMA = `{
   },
   "servers": [
     {
-      "url": "https://mediahost.app"
+      "url": "https://imagediscoverer.xyz"
     }
   ],
   "paths": {
@@ -249,11 +249,11 @@ export default function ApiSettings() {
         <CardContent className="space-y-3">
           <p className="text-sm text-gray-600">ChatGPT requires a privacy policy URL. Paste this in the Privacy Policy field:</p>
           <div className="flex items-center gap-2">
-            <Input value="https://mediahost.app/privacy" readOnly className="font-mono text-sm" />
+            <Input value="https://imagediscoverer.xyz/privacy" readOnly className="font-mono text-sm" />
             <Button
               variant="outline"
               size="icon"
-              onClick={() => copyToClipboard("https://mediahost.app/privacy", "Privacy URL")}
+              onClick={() => copyToClipboard("https://imagediscoverer.xyz/privacy", "Privacy URL")}
             >
               {copied === "Privacy URL" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
