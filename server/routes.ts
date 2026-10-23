@@ -14,8 +14,11 @@ import { backupService } from "./backup";
 import sharp from "sharp";
 import { randomBytes } from "crypto";
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), "uploads");
+// Ensure uploads directory exists.
+// Render persistent disk should be mounted at a known path and exposed via UPLOADS_DIR.
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(process.cwd(), "uploads");
 const thumbnailsDir = path.join(uploadsDir, "thumbnails");
 
 if (!fs.existsSync(uploadsDir)) {
