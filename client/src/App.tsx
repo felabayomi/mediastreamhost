@@ -10,6 +10,8 @@ import MediaLibrary from "@/pages/media-library";
 import ImageResizer from "@/pages/image-resizer";
 import AccessPortal from "@/pages/access-portal";
 import ApiSettings from "@/pages/api-settings";
+import Conversions from "@/pages/conversions";
+import Analytics from "@/pages/analytics";
 import NotFound from "@/pages/not-found";
 import Sidebar from "@/components/sidebar";
 
@@ -32,6 +34,8 @@ function AppContent() {
             <Route path="/paste" component={PasteConverter} />
             <Route path="/media" component={MediaLibrary} />
             <Route path="/resize" component={ImageResizer} />
+            <Route path="/conversions" component={Conversions} />
+            <Route path="/analytics" component={Analytics} />
             <Route path="/api-settings" component={ApiSettings} />
             <Route component={NotFound} />
           </Switch>

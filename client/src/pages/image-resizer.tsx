@@ -129,7 +129,11 @@ export default function ImageResizer() {
       return;
     }
     const name = `Custom (${w}x${h})`;
-    setSelectedSizes(prev => new Set([...prev, name]));
+    setSelectedSizes(prev => {
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
     toast({ title: "Size Added", description: `${w}x${h} added to selection` });
   };
 

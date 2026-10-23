@@ -25,29 +25,43 @@ export default function Dashboard() {
     queryKey: ["/api/stats"],
   });
 
-  const { data: recentFiles, isLoading: filesLoading } = useQuery({
+  const { data: recentFiles = [], isLoading: filesLoading } = useQuery<Array<{
+    id: number;
+    filename: string;
+    originalFilename: string;
+    mimeType: string;
+    fileType: "image" | "video";
+    size: number;
+    embeddableUrl: string;
+    uploadedAt: string;
+  }>>({
     queryKey: ["/api/media"],
   });
 
-  const { data: recentConversions } = useQuery({
+  const { data: recentConversions = [] } = useQuery<Array<{
+    id: number;
+    mediaFileId: number;
+    toFormat: string;
+    createdAt: string;
+  }>>({
     queryKey: ["/api/conversions"],
   });
 
   const recentActivity = [
-    ...(recentFiles?.slice(0, 3).map((file: any) => ({
+    ...recentFiles.slice(0, 3).map((file) => ({
       id: file.id,
       type: 'upload',
       filename: file.originalFilename,
       action: `Uploaded ${file.fileType}`,
       timestamp: new Date(file.uploadedAt),
-    })) || []),
-    ...(recentConversions?.slice(0, 2).map((conv: any) => ({
+    })),
+    ...recentConversions.slice(0, 2).map((conv) => ({
       id: conv.id,
       type: 'conversion',
       filename: `File ${conv.mediaFileId}`,
       action: `Converted to ${conv.toFormat}`,
       timestamp: new Date(conv.createdAt),
-    })) || []),
+    })),
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 5);
 
   function getTimeAgo(date: Date): string {
